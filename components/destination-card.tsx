@@ -3,14 +3,15 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Calendar,
   Mountain,
   Clock,
   ThermometerSun,
   AlertTriangle,
-  Download
+  Download,
 } from "lucide-react";
+import Image from "next/image";
 
 interface DestinationCardProps {
   title: string;
@@ -31,32 +32,32 @@ export function DestinationCard({
   bestSeason,
   maxAltitude,
   warning,
-  price
+  price,
 }: DestinationCardProps) {
   const difficultyColor = {
     Easy: "bg-green-100 text-green-800",
     Moderate: "bg-yellow-100 text-yellow-800",
     Hard: "bg-orange-100 text-orange-800",
-    Extreme: "bg-red-100 text-red-800"
+    Extreme: "bg-red-100 text-red-800",
   };
 
   return (
     <Card className="overflow-hidden">
       <div className="relative h-48">
-        <img
+        <Image
+          width={200}
+          height={200}
           src={image}
           alt={title}
           className="w-full h-full object-cover"
         />
         <div className="absolute top-2 right-2">
-          <Badge className={difficultyColor[difficulty]}>
-            {difficulty}
-          </Badge>
+          <Badge className={difficultyColor[difficulty]}>{difficulty}</Badge>
         </div>
       </div>
       <div className="p-4">
         <h3 className="text-xl font-semibold mb-3">{title}</h3>
-        
+
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock className="h-4 w-4" />

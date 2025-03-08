@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const destinations = [
   {
@@ -179,7 +180,9 @@ export default function DestinationsPage() {
               {/* Image */}
               <div className="relative h-64 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
-                <img
+                <Image
+                  width={300}
+                  height={300}
                   src={destination.image}
                   alt={destination.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

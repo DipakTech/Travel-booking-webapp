@@ -19,6 +19,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GuideMap } from "@/components/map/GuideMap";
+import Image from "next/image";
 
 const guides = [
   {
@@ -446,7 +447,9 @@ export function GuidesContent() {
               <div className="flex gap-6 p-6">
                 {/* Guide Image */}
                 <div className="relative w-32 h-32">
-                  <img
+                  <Image
+                    width={200}
+                    height={200}
                     src={guide.image}
                     alt={guide.name}
                     className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform duration-300"

@@ -1,19 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // experimental: {
-  //   appDir: true,
-  //   serverActions: true,
-  //   serverComponentsExternalPackages: ["@prisma/client", "bcryptjs"],
-  // },
-  // webpack: (config) => {
-  //   config.resolve.fallback = {
-  //     ...config.resolve.fallback,
-  //     crypto: false,
-  //   };
-  //   return config;
-  // },
-  // productionBrowserSourceMaps: false,
-  // basePath: "",
+  output: "standalone",
   images: {
     remotePatterns: [
       {

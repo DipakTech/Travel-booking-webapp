@@ -1,12 +1,9 @@
-version: '3.8'
-
 services:
   app:
     container_name: travel-booking-app
     build:
       context: .
       dockerfile: Dockerfile
-      target: runner
     restart: always
     ports:
       - "3000:3000"
@@ -14,7 +11,15 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - MAPBOX_TOKEN=${MAPBOX_TOKEN}
+      - MAPBOX_SECRET_TOKEN=${MAPBOX_SECRET_TOKEN}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
+      - NEXT_PUBLIC_GA_ID=${NEXT_PUBLIC_GA_ID}
+      - NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}
+      - NEXT_PUBLIC_UMAMI_WEBSITE_ID=${NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+      - NEXT_PUBLIC_UMAMI_SCRIPT_URL=${NEXT_PUBLIC_UMAMI_SCRIPT_URL}
+      - NEXT_PUBLIC_CRISP_WEBSITE_ID=${NEXT_PUBLIC_CRISP_WEBSITE_ID}
     depends_on:
       - db
     networks:

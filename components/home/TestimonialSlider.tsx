@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import Image from "next/image";
 
 const testimonials = [
   {
@@ -74,7 +75,9 @@ export function TestimonialSlider() {
           <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/20 p-8 sm:p-10">
             <div className="flex flex-col items-center text-center">
               <div className="relative w-20 h-20 mb-6">
-                <img
+                <Image
+                  width={200}
+                  height={200}
                   src={testimonials[currentSlide].image}
                   alt={testimonials[currentSlide].name}
                   className="w-full h-full object-cover rounded-full"
@@ -92,7 +95,7 @@ export function TestimonialSlider() {
               </div>
 
               <blockquote className="text-xl text-gray-900 mb-6">
-                "{testimonials[currentSlide].quote}"
+                &quot;{testimonials[currentSlide].quote}&quot;
               </blockquote>
 
               <div>

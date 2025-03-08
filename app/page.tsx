@@ -21,6 +21,7 @@ import {
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const popularDestinations = [
   {
@@ -371,7 +372,9 @@ export default function HomePage() {
               >
                 <div className="relative h-64">
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
-                  <img
+                  <Image
+                    width={200}
+                    height={200}
                     src={destination.image}
                     alt={destination.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

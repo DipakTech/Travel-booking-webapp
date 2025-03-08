@@ -71,7 +71,8 @@ export function HeroSection() {
           </h1>
           <p className="text-xl text-white/90 mb-8 max-w-2xl">
             Connect with expert local guides for authentic Himalayan
-            experiences. From trekking to cultural tours, we've got you covered.
+            experiences. From trekking to cultural tours, we&apos;ve got you
+            covered.
           </p>
 
           {/* Search Box */}

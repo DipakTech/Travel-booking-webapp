@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Star, Languages, Award, MapPin } from "lucide-react";
+import Image from "next/image";
 
 interface GuideCardProps {
   name: string;
@@ -29,7 +30,9 @@ export function GuideCard({
   return (
     <Card className="overflow-hidden">
       <div className="relative h-48">
-        <img
+        <Image
+          width={200}
+          height={200}
           src={image}
           alt={name}
           className="w-full h-full object-cover"
