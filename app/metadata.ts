@@ -5,7 +5,7 @@ const siteConfig = {
   description:
     "Connect with professional local guides for authentic Nepalese trekking experiences. Find expert guides, plan your trek, and explore the Himalayas with confidence.",
   url: process.env.NEXT_PUBLIC_APP_URL || "https://travel.oneclickresult.com",
-  ogImage: "/og-image.jpg",
+  ogImage: "/og/home.jpg",
   links: {
     twitter: "https://twitter.com/nepalguideconnect",
     github: "https://github.com/nepalguideconnect",
@@ -63,15 +63,20 @@ export const defaultMetadata: Metadata = {
     creator: "@nepalguideconnect",
   },
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png",
-    other: {
-      rel: "icon",
-      url: "/favicon-32x32.png",
-    },
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    other: [
+      {
+        rel: "mask-icon",
+        url: "/icon.svg",
+      },
+    ],
   },
-  manifest: "/site.webmanifest",
+  manifest: "/manifest.json",
   robots: {
     index: true,
     follow: true,

@@ -5,10 +5,10 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { mapboxConfig } from "@/lib/config/mapbox";
 
-// Replace with your Mapbox token
-mapboxgl.accessToken =
-  "pk.eyJ1IjoiZGlwYWtnaXJlZSIsImEiOiJjbTd1YTRhc2MwMjByMnFzOWJjNjN5bWV6In0.6nhAOX7emxi5yvrmRAG93g";
+// Set Mapbox token from environment variable
+mapboxgl.accessToken = mapboxConfig.publicToken || "";
 
 interface Location {
   id: string | number;
@@ -23,6 +23,10 @@ interface Location {
 interface DesktopMapProps {
   locations: Location[];
   className?: string;
+  center?: [number, number];
+  zoom?: number;
+  pitch?: number;
+  bearing?: number;
 }
 
 const typeColors = {
@@ -32,7 +36,14 @@ const typeColors = {
   landmark: "#6366f1",
 };
 
-export function DesktopMap({ locations, className }: DesktopMapProps) {
+export function DesktopMap({
+  locations,
+  className,
+  center = mapboxConfig.defaultCenter,
+  zoom = mapboxConfig.defaultZoom,
+  pitch = mapboxConfig.defaultPitch,
+  bearing = mapboxConfig.defaultBearing,
+}: DesktopMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(
@@ -40,22 +51,22 @@ export function DesktopMap({ locations, className }: DesktopMapProps) {
   );
 
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || !mapboxConfig.publicToken) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/outdoors-v12",
-      center: [86.8525, 28.0021],
-      zoom: 11,
-      pitch: 45,
-      bearing: -30,
+      style: mapboxConfig.style,
+      center,
+      zoom,
+      pitch,
+      bearing,
     });
 
     // Add terrain and sky layers
     map.current.on("load", () => {
       map.current?.addSource("mapbox-dem", {
         type: "raster-dem",
-        url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+        url: mapboxConfig.terrainSource,
         tileSize: 512,
         maxzoom: 14,
       });
@@ -160,10 +171,17 @@ export function DesktopMap({ locations, className }: DesktopMapProps) {
         map.current.remove();
       }
     };
-  }, [locations]);
+  }, [locations, center, zoom, pitch, bearing]);
 
   return (
     <div className={cn("relative h-full", className)}>
+      {!mapboxConfig.publicToken && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-900 rounded-xl">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Please add your Mapbox token to the environment variables.
+          </p>
+        </div>
+      )}
       <div ref={mapContainer} className="w-full h-full rounded-xl" />
 
       {/* Location Info Overlay */}
