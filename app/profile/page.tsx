@@ -204,7 +204,7 @@ export default function ProfilePage() {
                         <Card className="overflow-hidden">
                           <div className="relative h-48">
                             <Image
-                              src={`/tour-${tour}.jpg`}
+                              src={`/guides/guide-1.jpg`}
                               alt={`Tour ${tour}`}
                               fill
                               className="object-cover transition-transform group-hover:scale-105"
@@ -273,7 +273,7 @@ export default function ProfilePage() {
                         <Card className="overflow-hidden">
                           <div className="relative h-48">
                             <Image
-                              src={`/destination-${saved}.jpg`}
+                              src={`/destinations/abc.jpg`}
                               alt={`Saved ${saved}`}
                               fill
                               className="object-cover"
