@@ -42,7 +42,7 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="mt-8 space-y-6">
+    <div className="space-y-6">
       <form onSubmit={onSubmit} className="space-y-6">
         <div>
           <label
