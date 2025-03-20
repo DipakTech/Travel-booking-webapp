@@ -249,10 +249,7 @@ export default function EditBookingPage({
                     <FormItem>
                       <FormLabel>Destination Name</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Enter destination name"
-                          {...field}
-                        />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -266,7 +263,10 @@ export default function EditBookingPage({
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter location" {...field} />
+                        <div className="flex items-center">
+                          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <Input {...field} />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -280,10 +280,12 @@ export default function EditBookingPage({
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>Start Date</FormLabel>
-                        <DatePicker
-                          date={field.value}
-                          setDate={field.onChange}
-                        />
+                        <FormControl>
+                          <DatePicker
+                            date={field.value}
+                            setDate={field.onChange}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -295,45 +297,73 @@ export default function EditBookingPage({
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
                         <FormLabel>End Date</FormLabel>
-                        <DatePicker
-                          date={field.value}
-                          setDate={field.onChange}
+                        <FormControl>
+                          <DatePicker
+                            date={field.value}
+                            setDate={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="travelers"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Travelers</FormLabel>
+                      <FormControl>
+                        <div className="flex items-center">
+                          <Users className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <Input type="number" min={1} {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="guideRequired"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={field.onChange}
+                          className="h-4 w-4 mt-1"
                         />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Guide Required</FormLabel>
+                        <FormDescription>
+                          Assign a tour guide to this booking
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
 
-                <div className="grid grid-cols-2 gap-4">
+                {form.watch("guideRequired") && (
                   <FormField
                     control={form.control}
-                    name="travelers"
+                    name="guideAssigned"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Travelers</FormLabel>
+                        <FormLabel>Assigned Guide</FormLabel>
                         <FormControl>
-                          <Input type="number" min="1" {...field} />
+                          <Input {...field} placeholder="Enter guide name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="totalAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total Amount</FormLabel>
-                        <FormControl>
-                          <Input type="number" min="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                )}
               </CardContent>
             </Card>
 
@@ -342,7 +372,7 @@ export default function EditBookingPage({
               <CardHeader>
                 <CardTitle>Customer Information</CardTitle>
                 <CardDescription>
-                  Update customer contact details
+                  Update the customer information for this booking
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -353,7 +383,7 @@ export default function EditBookingPage({
                     <FormItem>
                       <FormLabel>Customer Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter customer name" {...field} />
+                        <Input {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -367,11 +397,7 @@ export default function EditBookingPage({
                     <FormItem>
                       <FormLabel>Email Address</FormLabel>
                       <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          {...field}
-                        />
+                        <Input type="email" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -385,7 +411,25 @@ export default function EditBookingPage({
                     <FormItem>
                       <FormLabel>Phone Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter phone number" {...field} />
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="specialRequirements"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Special Requirements</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Any special requirements or notes"
+                          className="resize-none min-h-[120px]"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -393,18 +437,16 @@ export default function EditBookingPage({
                 />
               </CardContent>
             </Card>
-          </div>
 
-          {/* Booking Details Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Booking Details</CardTitle>
-              <CardDescription>
-                Update the status and additional details of this booking
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            {/* Booking Status Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Booking Status</CardTitle>
+                <CardDescription>
+                  Update the status of this booking
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
                   name="status"
@@ -456,41 +498,44 @@ export default function EditBookingPage({
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="guideRequired"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>Guide Required</FormLabel>
-                      <FormDescription>
-                        Check if the customer requires a guide for this booking
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              {form.watch("guideRequired") && (
                 <FormField
                   control={form.control}
-                  name="guideAssigned"
+                  name="totalAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Assigned Guide</FormLabel>
+                      <FormLabel>Total Amount ($)</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Enter assigned guide's name"
+                        <div className="flex items-center">
+                          <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
+                          <Input type="number" min={0} step={0.01} {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Additional Notes Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Notes</CardTitle>
+                <CardDescription>
+                  Add any additional notes or comments for this booking
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Add any internal notes here..."
+                          className="resize-none min-h-[200px]"
                           {...field}
                         />
                       </FormControl>
@@ -498,55 +543,14 @@ export default function EditBookingPage({
                     </FormItem>
                   )}
                 />
-              )}
-
-              <FormField
-                control={form.control}
-                name="specialRequirements"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Special Requirements</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter any special requirements or accommodation needs"
-                        className="min-h-[120px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Additional Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Enter any additional notes about this booking"
-                        className="min-h-[120px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <div className="flex gap-2">
-                <Button variant="outline" asChild>
-                  <Link href={`/dashboard/bookings/${params.id}`}>Cancel</Link>
+              </CardContent>
+              <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" className="ml-auto" disabled={isSaving}>
+                  {isSaving ? "Saving changes..." : "Save changes"}
                 </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
+              </CardFooter>
+            </Card>
+          </div>
         </form>
       </Form>
     </div>

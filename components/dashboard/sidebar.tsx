@@ -17,6 +17,7 @@ import {
   MapPin,
   Compass,
   Star,
+  Bell,
 } from "lucide-react";
 
 import { Home } from "lucide-react";
@@ -107,6 +108,9 @@ export default function Sidebar({ className }: { className?: string }) {
                   <NavItem href="/dashboard" icon={Home}>
                     Dashboard
                   </NavItem>
+                  <NavItem href="/dashboard/notifications" icon={Bell}>
+                    Notifications
+                  </NavItem>
                 </div>
               </div>
 
@@ -129,36 +133,13 @@ export default function Sidebar({ className }: { className?: string }) {
                   </NavItem>
                 </div>
               </div>
-
-              <div>
-                <div className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  Team
-                </div>
-                <div className="space-y-1">
-                  <NavItem href="#" icon={Users2}>
-                    Members
-                  </NavItem>
-                  <NavItem href="#" icon={Shield}>
-                    Permissions
-                  </NavItem>
-                  <NavItem href="#" icon={MessagesSquare}>
-                    Chat
-                  </NavItem>
-                  <NavItem href="#" icon={Video}>
-                    Meetings
-                  </NavItem>
-                </div>
-              </div>
             </div>
           </div>
 
           <div className="px-4 py-4 border-t border-gray-200 dark:border-[#1F1F23]">
             <div className="space-y-1">
-              <NavItem href="#" icon={Settings}>
+              <NavItem href="/dashboard/settings" icon={Settings}>
                 Settings
-              </NavItem>
-              <NavItem href="#" icon={HelpCircle}>
-                Help
               </NavItem>
             </div>
           </div>

@@ -1,5 +1,8 @@
-import { Metadata } from "next";
-import { notFound } from "next/navigation";
+"use client";
+
+// import { Metadata } from "next";
+import { notFound, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   Plus,
@@ -29,11 +32,10 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ScheduleForm } from "@/components/dashboard/guides/ScheduleForm";
-
-export const metadata: Metadata = {
-  title: "Guide Schedule | Travel Booking Dashboard",
-  description: "Manage guide tour schedule and assignments",
-};
+// export const metadata: Metadata = {
+//   title: "Guide Schedule | Travel Booking Dashboard",
+//   description: "Manage guide tour schedule and assignments",
+// };
 
 // Mock data - in a real app, this would come from a database
 const guides = [
@@ -107,6 +109,24 @@ export default function GuideSchedulePage({
 }: {
   params: { id: string };
 }) {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // Redirect to login if not authenticated
+  if (status === "unauthenticated") {
+    router.push("/api/auth/signin");
+    return null;
+  }
+
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   const guide = guides.find((g) => g.id === params.id);
 
   if (!guide) {
@@ -197,10 +217,12 @@ export default function GuideSchedulePage({
             </p>
           </div>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Tour
-        </Button>
+        <Link href={`/dashboard/guides/${params.id}/schedule/add`}>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Tour
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -308,8 +330,12 @@ export default function GuideSchedulePage({
                 </TableCell>
                 <TableCell>{getStatusBadge(tour.status)}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    Details
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link
+                      href={`/dashboard/guides/${params.id}/schedule/${tour.id}`}
+                    >
+                      Details
+                    </Link>
                   </Button>
                   <Button
                     variant="ghost"

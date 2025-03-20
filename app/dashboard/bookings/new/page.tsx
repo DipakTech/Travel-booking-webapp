@@ -1,13 +1,9 @@
-import { Metadata } from "next";
+"use client";
+
 import { BookingForm } from "@/components/dashboard/bookings/BookingForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-
-export const metadata: Metadata = {
-  title: "New Booking | Travel Booking Dashboard",
-  description: "Create a new booking",
-};
 
 export default function NewBookingPage() {
   return (

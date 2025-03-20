@@ -1,3 +1,5 @@
+"use client";
+
 import { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -12,24 +14,26 @@ import { Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { GuideList } from "@/components/dashboard/guides/GuideList";
 
-export const metadata: Metadata = {
-  title: "Guides | Travel Booking Dashboard",
-  description: "Manage tour guides and their assignments",
-};
+// export const metadata: Metadata = {
+//   title: "Guides | Travel Booking Dashboard",
+//   description: "Manage tour guides and their assignments",
+// };
 
 export default function GuidesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Guides</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Tour Guides</h2>
           <p className="text-muted-foreground">
-            Manage your tour guides and their assignments
+            Manage your team of tour guides
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Guide
+        <Button asChild>
+          <Link href="/dashboard/guides/add">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Guide
+          </Link>
         </Button>
       </div>
 

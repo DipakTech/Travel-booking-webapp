@@ -35,6 +35,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { Input } from "@/components/ui/input";
 
 // Mock bookings data
 const mockBookings = [
@@ -249,6 +250,11 @@ export default function CancelBookingPage({
                       variant={
                         booking.status === "confirmed" ? "default" : "outline"
                       }
+                      className={
+                        booking.status === "confirmed"
+                          ? "bg-green-100 text-green-800 hover:bg-green-100"
+                          : ""
+                      }
                     >
                       {booking.status.charAt(0).toUpperCase() +
                         booking.status.slice(1)}
@@ -256,11 +262,21 @@ export default function CancelBookingPage({
                   </div>
                 </div>
                 <div>
+                  <h3 className="font-medium">Travelers</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {booking.travelers}{" "}
+                    {booking.travelers === 1 ? "person" : "people"}
+                  </p>
+                </div>
+                <div>
                   <h3 className="font-medium">Payment</h3>
                   <div className="mt-1">
                     <Badge
-                      variant={
-                        booking.paymentStatus === "paid" ? "success" : "warning"
+                      variant="outline"
+                      className={
+                        booking.paymentStatus === "paid"
+                          ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
+                          : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
                       }
                     >
                       {booking.paymentStatus.charAt(0).toUpperCase() +
@@ -269,9 +285,9 @@ export default function CancelBookingPage({
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-medium">Travelers</h3>
+                  <h3 className="font-medium">Customer Contact</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {booking.travelers}
+                    {booking.customer.email}
                   </p>
                 </div>
               </div>
@@ -283,140 +299,137 @@ export default function CancelBookingPage({
           <CardHeader>
             <CardTitle>Cancellation Details</CardTitle>
             <CardDescription>
-              Provide details about the cancellation.
+              Provide information about this cancellation.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={form.control}
-                  name="reason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cancellation Reason</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select cancellation reason" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="customer_request">
-                            Customer Request
-                          </SelectItem>
-                          <SelectItem value="emergency">
-                            Emergency / Force Majeure
-                          </SelectItem>
-                          <SelectItem value="scheduling_conflict">
-                            Scheduling Conflict
-                          </SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="refundAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Refund Amount ($)</FormLabel>
-                      <FormControl>
-                        <input
-                          type="number"
-                          min={0}
-                          max={booking.totalAmount}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(parseFloat(e.target.value))
-                          }
-                        />
-                      </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        Maximum refund amount: $
-                        {booking.totalAmount.toLocaleString()}
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cancellation Notes</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter details about the cancellation..."
-                          className="h-32 resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end space-x-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      router.push(`/dashboard/bookings/${params.id}`)
-                    }
+          <CardContent className="space-y-6">
+            <FormField
+              control={form.control}
+              name="reason"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cancellation Reason</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
                   >
-                    Keep Booking
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="destructive"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Cancelling...
-                      </span>
-                    ) : (
-                      <span className="flex items-center">Cancel Booking</span>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select reason for cancellation" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="customer_request">
+                        Customer Request
+                      </SelectItem>
+                      <SelectItem value="emergency">
+                        Emergency/Unforeseen Circumstances
+                      </SelectItem>
+                      <SelectItem value="scheduling_conflict">
+                        Scheduling Conflict
+                      </SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="refundAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Refund Amount ($)</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <span className="text-gray-500">$</span>
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={booking.totalAmount}
+                        step={0.01}
+                        className="pl-7"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value))
+                        }
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Maximum refund: ${booking.totalAmount.toLocaleString()}
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cancellation Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Please provide details regarding this cancellation..."
+                      className="min-h-[120px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
+          <CardFooter className="border-t px-6 py-4">
+            <div className="flex justify-between w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push(`/dashboard/bookings/${params.id}`)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center">
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing
+                  </div>
+                ) : (
+                  "Confirm Cancellation"
+                )}
+              </Button>
+            </div>
+          </CardFooter>
         </Card>
       </div>
     </div>

@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
+import Link from "next/link";
 interface Booking {
   id: string;
   destinationName: string;
@@ -225,15 +225,29 @@ export function BookingList() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Details</DropdownMenuItem>
-                    <DropdownMenuItem>Edit Booking</DropdownMenuItem>
-                    <DropdownMenuItem>Contact Customer</DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link href={`/dashboard/bookings/${booking.id}`}>
+                        View details
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link href={`/dashboard/bookings/${booking.id}/edit`}>
+                        Edit Booking
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Link href={`/dashboard/bookings/${booking.id}/contact`}>
+                        Contact Customer
+                      </Link>
+                    </DropdownMenuItem>
                     {booking.status === "pending" && (
                       <DropdownMenuItem>Confirm Booking</DropdownMenuItem>
                     )}
                     {booking.status !== "cancelled" && (
                       <DropdownMenuItem className="text-red-600">
-                        Cancel Booking
+                        <Link href={`/dashboard/bookings/${booking.id}/cancel`}>
+                          Cancel Booking
+                        </Link>
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -17,12 +19,10 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DestinationList } from "@/components/dashboard/destinations/DestinationList";
-export const metadata = {
-  title: "Destinations | Travel Booking Dashboard",
-  description: "Manage your travel destinations and locations",
-};
+import { useRouter } from "next/navigation";
 
 export default function DestinationsPage() {
+  const router = useRouter();
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -32,7 +32,7 @@ export default function DestinationsPage() {
             Explore and manage travel destinations
           </p>
         </div>
-        <Button>
+        <Button onClick={() => router.push("/dashboard/destinations/add")}>
           <Plus className="mr-2 h-4 w-4" />
           Add Destination
         </Button>

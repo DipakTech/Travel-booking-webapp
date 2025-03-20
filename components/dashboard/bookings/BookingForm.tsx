@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -108,7 +108,7 @@ export function BookingForm({
     },
   });
 
-  const handleSubmit = form.handleSubmit((data) => {
+  const handleSubmit = form.handleSubmit((data: BookingFormValues) => {
     onSubmit(data);
   });
 
