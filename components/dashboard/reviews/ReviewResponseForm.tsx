@@ -29,7 +29,7 @@ type FormValues = z.infer<typeof responseSchema>;
 interface ReviewResponseFormProps {
   reviewId: string;
   defaultValue?: string;
-  onSuccess?: (data: FormValues) => Promise<boolean>;
+  onSuccess?: (data: FormValues) => Promise<boolean | undefined>;
 }
 
 export function ReviewResponseForm({

@@ -91,7 +91,7 @@ export default function EditGuidePage({ params }: { params: { id: string } }) {
           languages: guide.languages.join(", "),
           specialties: guide.specialties.join(", "),
           certification: guide.certification.join(", "),
-          status: guide.status,
+          status: guide.status as "active" | "inactive",
         }}
         onSubmit={handleSubmit}
         isLoading={isLoading}

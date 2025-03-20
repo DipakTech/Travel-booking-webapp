@@ -136,7 +136,7 @@ export default function EditDestinationPage({
           difficulty: destination.difficulty,
           duration: destination.duration,
           averageCost: destination.averageCost,
-          status: destination.status,
+          status: destination.status as "popular" | "trending" | "new",
           highlights: destination.highlights?.join("\n"),
           // Other fields would be passed here
         }}
