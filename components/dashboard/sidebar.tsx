@@ -72,30 +72,21 @@ export default function Sidebar({ className }: { className?: string }) {
       >
         <div className="h-full flex flex-col">
           <Link
-            href="https://kokonutui.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-16 px-6 flex items-center border-b border-gray-200 dark:border-[#1F1F23]"
+            href="/"
+            className="relative z-50 px-5 mb-10 mt-2 flex items-center gap-2"
           >
-            <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 md:h-12 md:w-12 overflow-hidden">
               <Image
-                src="https://kokonutui.com/logo.svg"
-                alt="Acme"
-                width={32}
-                height={32}
-                className="flex-shrink-0 hidden dark:block"
+                src="/logo.png"
+                alt="Nepal Guide Connect"
+                fill
+                className="object-contain"
+                priority
               />
-              <Image
-                src="https://kokonutui.com/logo-black.svg"
-                alt="Acme"
-                width={32}
-                height={32}
-                className="flex-shrink-0 block dark:hidden"
-              />
-              <span className="text-lg font-semibold hover:cursor-pointer text-gray-900 dark:text-white">
-                Travel Booking
-              </span>
             </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent hidden sm:inline-block">
+              Guide Hub
+            </span>
           </Link>
 
           <div className="flex-1 overflow-y-auto py-4 px-4">
