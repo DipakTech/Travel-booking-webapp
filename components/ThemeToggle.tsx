@@ -28,7 +28,7 @@ export function ThemeToggle() {
           transition={{ duration: 0.2 }}
           className="absolute inset-0"
         >
-          <Sun className="w-6 h-6 text-yellow-500" />
+          <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300 transition-all scale-100 rotate-0 dark:scale-0 dark:rotate-90" />
         </motion.div>
 
         {/* Moon icon */}
@@ -41,7 +41,7 @@ export function ThemeToggle() {
           transition={{ duration: 0.2 }}
           className="absolute inset-0"
         >
-          <Moon className="w-6 h-6 text-slate-900 dark:text-slate-100" />
+          <Moon className="absolute h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300 transition-all scale-0 -rotate-90 dark:scale-100 dark:rotate-0 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
         </motion.div>
       </div>
       <span className="sr-only">Toggle theme</span>

@@ -44,22 +44,11 @@ const routes: Route[] = [
   },
 ];
 
-export function Navbar() {
-  const pathname = usePathname();
+function NavbarContent() {
   const { data: session, status } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
-
-  // Handle scroll effect
-  // useEffect(() => {
-  //   const handleScroll = () => {
-  //     const offset = window.scrollY;
-  //     setScrolled(offset > 10);
-  //   };
-
-  //   window.addEventListener("scroll", handleScroll);
-  //   return () => window.removeEventListener("scroll", handleScroll);
-  // }, []);
+  const pathname = usePathname();
 
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
@@ -87,13 +76,10 @@ export function Navbar() {
   }, [pathname]);
 
   return (
-    // <div className="relative">
     <header
       className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ",
         "bg-white/50 dark:bg-gray-950/50 backdrop-blur-md",
-        // scrolled &&
-        //   "bg-white/80 dark:bg-gray-900/85 backdrop-blur-lg shadow-sm",
         "border-b border-gray-200/20 dark:border-gray-800/20",
       )}
       ref={navRef}
@@ -175,6 +161,15 @@ export function Navbar() {
         onSignOut={() => signOut()}
       />
     </header>
-    // </div>
   );
+}
+
+export function Navbar() {
+  const pathname = usePathname();
+
+  if (pathname?.startsWith("/dashboard")) {
+    return null;
+  }
+
+  return <NavbarContent />;
 }
