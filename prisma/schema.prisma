@@ -117,6 +117,7 @@ model Guide {
   reviews        Review[]
   certifications Certification[]
   availableDates AvailableDate[]
+  tours          Tour[]
 }
 
 model Certification {
@@ -135,6 +136,26 @@ model AvailableDate {
   to      DateTime
   guideId String
   guide   Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+}
+
+model Tour {
+  id              String   @id @default(cuid())
+  destination     String
+  location        String
+  startDate       String
+  endDate         String
+  description     String   @db.Text
+  maxParticipants Int
+  price           Float
+  status          String
+  difficulty      String
+  itinerary       String   @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  guideId String
+  guide   Guide  @relation(fields: [guideId], references: [id], onDelete: Cascade)
 }
 
 model GuideDestination {

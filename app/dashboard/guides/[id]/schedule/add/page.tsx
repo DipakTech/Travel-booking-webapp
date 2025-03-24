@@ -4,11 +4,36 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { TourForm } from "@/components/dashboard/guides/TourForm";
+import { useRouter } from "next/navigation";
+import { useCreateGuideSchedule } from "@/lib/hooks/use-guide-schedules";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function AddTourPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { mutate: createSchedule, isPending } = useCreateGuideSchedule(
+    params.id,
+  );
+
   const handleSubmit = async (data: any) => {
-    // TODO: Implement tour creation logic
-    console.log("Tour data:", data);
+    createSchedule(data, {
+      onSuccess: () => {
+        toast({
+          title: "Tour created",
+          description:
+            "The tour has been successfully added to the guide's schedule.",
+        });
+        router.push(`/dashboard/guides/${params.id}/schedule`);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Failed to create tour",
+          description:
+            error.message || "An unexpected error occurred. Please try again.",
+          variant: "destructive",
+        });
+      },
+    });
   };
 
   return (
@@ -28,7 +53,7 @@ export default function AddTourPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      <TourForm onSubmit={handleSubmit} />
+      <TourForm onSubmit={handleSubmit} isLoading={isPending} />
     </div>
   );
 }

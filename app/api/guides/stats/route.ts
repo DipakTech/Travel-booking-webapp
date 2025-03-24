@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sampleGuides } from "@/lib/schema/guide";
+import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,75 +11,88 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Calculate statistics from sample guides data
-    const totalGuides = sampleGuides.length;
+    // Get the start of the current month
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const activeGuides = sampleGuides.filter(
-      (guide) => guide.availability === "available",
-    ).length;
+    // Get the start of last month
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    const onLeaveGuides = sampleGuides.filter(
-      (guide) => guide.availability === "partially_available",
-    ).length;
+    // Total guides count
+    const totalGuides = await prisma.guide.count();
 
-    const inactiveGuides = sampleGuides.filter(
-      (guide) => guide.availability === "unavailable",
-    ).length;
+    // Active guides count
+    const activeGuides = await prisma.guide.count({
+      where: { availability: "available" },
+    });
+
+    // Partially available guides count
+    const onLeaveGuides = await prisma.guide.count({
+      where: { availability: "partially_available" },
+    });
+
+    // Inactive guides count
+    const inactiveGuides = await prisma.guide.count({
+      where: { availability: "unavailable" },
+    });
 
     // Calculate average rating
-    const totalRating = sampleGuides.reduce(
-      (sum, guide) => sum + guide.rating,
-      0,
-    );
-    const averageRating = totalRating / totalGuides;
+    const ratingStats = await prisma.guide.aggregate({
+      _avg: { rating: true },
+      _sum: { reviewCount: true },
+    });
 
-    // Count total reviews
-    const totalReviews = sampleGuides.reduce(
-      (sum, guide) => sum + guide.reviewCount,
-      0,
-    );
+    const averageRating = ratingStats._avg.rating || 0;
+    const totalReviews = ratingStats._sum.reviewCount || 0;
 
-    // Get guides by experience level
-    const beginnerGuides = sampleGuides.filter(
-      (guide) => guide.experience.level === "beginner",
-    ).length;
+    // Count bookings for the current month
+    const currentMonthBookings = await prisma.booking.count({
+      where: {
+        startDate: {
+          gte: currentMonthStart,
+          lt: now,
+        },
+        guideId: { not: null }, // Only count bookings with guides
+      },
+    });
 
-    const intermediateGuides = sampleGuides.filter(
-      (guide) => guide.experience.level === "intermediate",
-    ).length;
+    // Count bookings for the last month
+    const lastMonthBookings = await prisma.booking.count({
+      where: {
+        startDate: {
+          gte: lastMonthStart,
+          lt: lastMonthEnd,
+        },
+        guideId: { not: null }, // Only count bookings with guides
+      },
+    });
 
-    const expertGuides = sampleGuides.filter(
-      (guide) => guide.experience.level === "expert",
-    ).length;
+    // Calculate percent change
+    const changeFromLastMonth =
+      lastMonthBookings > 0
+        ? Math.round(
+            ((currentMonthBookings - lastMonthBookings) / lastMonthBookings) *
+              100,
+          )
+        : 0;
 
-    const masterGuides = sampleGuides.filter(
-      (guide) => guide.experience.level === "master",
-    ).length;
-
-    // Get active tours this month (mock data)
-    const toursThisMonth = 36;
-    const changeFromLastMonth = 12; // Percentage increase
-
-    return NextResponse.json({
+    const stats = {
       totalGuides,
       activeGuides,
       onLeaveGuides,
       inactiveGuides,
       averageRating,
       totalReviews,
-      experienceLevels: {
-        beginner: beginnerGuides,
-        intermediate: intermediateGuides,
-        expert: expertGuides,
-        master: masterGuides,
-      },
-      toursThisMonth,
+      toursThisMonth: currentMonthBookings,
       changeFromLastMonth,
-    });
+    };
+
+    return NextResponse.json(stats);
   } catch (error) {
-    console.error("Error fetching guide statistics:", error);
+    console.error("Error fetching guide stats:", error);
     return NextResponse.json(
-      { error: "Failed to fetch guide statistics" },
+      { error: "Failed to fetch guide stats" },
       { status: 500 },
     );
   }

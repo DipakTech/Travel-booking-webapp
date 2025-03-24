@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sampleGuides } from "@/lib/schema/guide";
+import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,32 +11,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse limit from query parameters or default to 5
-    const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get("limit") || "5", 10);
+    const searchParams = req.nextUrl.searchParams;
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam ? parseInt(limitParam) : 5;
 
-    // Sort guides by rating in descending order
-    const topRatedGuides = [...sampleGuides]
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, limit)
-      .map((guide) => ({
-        id: guide.id,
-        name: guide.name,
-        photo: guide.photo || "/images/avatars/default.jpg", // Use the photo field from the guide schema
-        location: guide.location,
-        languages: guide.languages,
-        specialties: guide.specialties.slice(0, 2), // Show only top 2 specialties
-        rating: guide.rating,
-        reviewCount: guide.reviewCount,
-        hourlyRate: guide.hourlyRate,
-        availability: guide.availability,
-      }));
+    // Fetch top rated guides from the database
+    const guides = await prisma.guide.findMany({
+      where: {
+        rating: { gte: 4.0 }, // Only guides with at least a 4.0 rating
+      },
+      orderBy: {
+        rating: "desc",
+      },
+      take: limit,
+    });
 
-    return NextResponse.json(topRatedGuides);
+    return NextResponse.json(guides);
   } catch (error) {
-    console.error("Error fetching top-rated guides:", error);
+    console.error("Error fetching top rated guides:", error);
     return NextResponse.json(
-      { error: "Failed to fetch top-rated guides" },
+      { error: "Failed to fetch top rated guides" },
       { status: 500 },
     );
   }

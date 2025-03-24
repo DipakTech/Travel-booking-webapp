@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { sampleGuides, guideSchema } from "@/lib/schema/guide";
+import { guideSchema } from "@/lib/schema/guide";
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,18 +29,17 @@ export async function GET(req: NextRequest) {
     const limit = limitStr ? parseInt(limitStr) : 10;
     const offset = offsetStr ? parseInt(offsetStr) : 0;
 
-    // Filter guides based on the query parameters
-    let filteredGuides = [...sampleGuides];
+    // Build the filter object for Prisma
+    let whereClause: any = {};
 
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredGuides = filteredGuides.filter(
-        (guide) =>
-          guide.name.toLowerCase().includes(searchLower) ||
-          guide.location.country.toLowerCase().includes(searchLower) ||
-          guide.location.region.toLowerCase().includes(searchLower) ||
-          guide.bio.toLowerCase().includes(searchLower),
-      );
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { country: { contains: search, mode: "insensitive" } },
+        { region: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+        { bio: { contains: search, mode: "insensitive" } },
+      ];
     }
 
     if (status) {
@@ -49,59 +49,55 @@ export async function GET(req: NextRequest) {
         inactive: "unavailable",
       } as const;
 
-      filteredGuides = filteredGuides.filter(
-        (guide) =>
-          guide.availability ===
-          availabilityMap[status as keyof typeof availabilityMap],
-      );
+      whereClause.availability =
+        availabilityMap[status as keyof typeof availabilityMap];
     }
 
     if (location) {
-      const locationLower = location.toLowerCase();
-      filteredGuides = filteredGuides.filter(
-        (guide) =>
-          guide.location.country.toLowerCase().includes(locationLower) ||
-          guide.location.region.toLowerCase().includes(locationLower) ||
-          (guide.location.city &&
-            guide.location.city.toLowerCase().includes(locationLower)),
-      );
+      whereClause.OR = [
+        ...(whereClause.OR || []),
+        { country: { contains: location, mode: "insensitive" } },
+        { region: { contains: location, mode: "insensitive" } },
+        { city: { contains: location, mode: "insensitive" } },
+      ];
     }
 
     if (language) {
-      const languageLower = language.toLowerCase();
-      filteredGuides = filteredGuides.filter((guide) =>
-        guide.languages.some((lang) =>
-          lang.toLowerCase().includes(languageLower),
-        ),
-      );
+      whereClause.languages = {
+        has: language,
+      };
     }
 
     if (specialty) {
-      const specialtyLower = specialty.toLowerCase();
-      filteredGuides = filteredGuides.filter((guide) =>
-        guide.specialties.some((spec) =>
-          spec.toLowerCase().includes(specialtyLower),
-        ),
-      );
+      whereClause.specialties = {
+        has: specialty,
+      };
     }
 
     if (minRating !== undefined) {
-      filteredGuides = filteredGuides.filter(
-        (guide) => guide.rating >= minRating,
-      );
+      whereClause.rating = {
+        gte: minRating,
+      };
     }
 
-    // Calculate total count before pagination
-    const total = filteredGuides.length;
+    // Count total guides matching the filter
+    const total = await prisma.guide.count({
+      where: whereClause,
+    });
 
-    // Apply pagination
-    const paginatedGuides = filteredGuides.slice(offset, offset + limit);
+    // Fetch guides with pagination
+    const guides = await prisma.guide.findMany({
+      where: whereClause,
+      skip: offset,
+      take: limit,
+      orderBy: { name: "asc" },
+    });
 
     // Format the response
-    const guides = paginatedGuides.map((guide) => ({
+    const formattedGuides = guides.map((guide) => ({
       id: guide.id,
       name: guide.name,
-      location: `${guide.location.region}, ${guide.location.country}`,
+      location: `${guide.region}, ${guide.country}`,
       rating: guide.rating,
       status:
         guide.availability === "available"
@@ -109,12 +105,12 @@ export async function GET(req: NextRequest) {
           : guide.availability === "partially_available"
           ? "on_leave"
           : "inactive",
-      experience: `${guide.experience.years} years`,
+      experience: `${guide.experienceYears} years`,
       languages: guide.languages,
-      profileImage: guide.photo,
+      photo: guide.photo,
     }));
 
-    return NextResponse.json({ guides, total });
+    return NextResponse.json({ guides: formattedGuides, total });
   } catch (error) {
     console.error("Error fetching guides:", error);
     return NextResponse.json(
@@ -136,14 +132,52 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = guideSchema.parse(body);
 
-    // In a real application, this would create a new guide in the database
-    // For now, we'll just simulate a successful creation by returning the data with an ID
-    const newGuide = {
-      ...validatedData,
-      id: `guide${sampleGuides.length + 1}`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+    // Create a new guide in the database
+    const newGuide = await prisma.guide.create({
+      data: {
+        name: validatedData.name,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        photo: validatedData.photo,
+        country: validatedData.location.country,
+        region: validatedData.location.region,
+        city: validatedData.location.city,
+        languages: validatedData.languages,
+        specialties: validatedData.specialties,
+        experienceYears: validatedData.experience.years,
+        experienceLevel: validatedData.experience.level,
+        expeditions: validatedData.experience.expeditions,
+        bio: validatedData.bio,
+        hourlyRate: validatedData.hourlyRate,
+        availability: validatedData.availability,
+        rating: validatedData.rating || 0,
+        reviewCount: validatedData.reviewCount || 0,
+        instagram: validatedData.socialMedia?.instagram,
+        facebook: validatedData.socialMedia?.facebook,
+        twitter: validatedData.socialMedia?.twitter,
+        linkedin: validatedData.socialMedia?.linkedin,
+        // Create certifications if provided
+        certifications: validatedData.certifications
+          ? {
+              create: validatedData.certifications.map((cert) => ({
+                name: cert.name,
+                issuedBy: cert.issuedBy,
+                year: cert.year,
+                expiryYear: cert.expiryYear,
+              })),
+            }
+          : undefined,
+        // Create available dates if provided
+        availableDates: validatedData.availableDates
+          ? {
+              create: validatedData.availableDates.map((date) => ({
+                from: date.from,
+                to: date.to,
+              })),
+            }
+          : undefined,
+      },
+    });
 
     return NextResponse.json(newGuide, { status: 201 });
   } catch (error) {

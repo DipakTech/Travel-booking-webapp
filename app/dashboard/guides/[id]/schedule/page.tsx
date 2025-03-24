@@ -32,6 +32,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ScheduleForm } from "@/components/dashboard/guides/ScheduleForm";
+import { useGuide } from "@/lib/hooks/use-guides";
+import { useGuideSchedules } from "@/lib/hooks/use-guide-schedules";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 // export const metadata: Metadata = {
 //   title: "Guide Schedule | Travel Booking Dashboard",
 //   description: "Manage guide tour schedule and assignments",
@@ -112,6 +117,20 @@ export default function GuideSchedulePage({
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // Fetch guide data
+  const {
+    data: guide,
+    isLoading: isLoadingGuide,
+    error: guideError,
+  } = useGuide(params.id);
+
+  // Fetch guide schedules
+  const {
+    data: schedules,
+    isLoading: isLoadingSchedules,
+    error: schedulesError,
+  } = useGuideSchedules(params.id);
+
   // Redirect to login if not authenticated
   if (status === "unauthenticated") {
     router.push("/api/auth/signin");
@@ -127,10 +146,13 @@ export default function GuideSchedulePage({
     );
   }
 
-  const guide = guides.find((g) => g.id === params.id);
-
-  if (!guide) {
+  if (guideError) {
     notFound();
+  }
+
+  // Show loading states
+  if (isLoadingGuide || !guide) {
+    return <SchedulePageSkeleton />;
   }
 
   // Format date
@@ -184,19 +206,29 @@ export default function GuideSchedulePage({
     }
   };
 
-  // Sort tours by date (most recent first)
-  const sortedTours = [...guide.schedule].sort(
-    (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
-  );
+  // Sort and filter schedules
+  const processSchedules = () => {
+    if (!schedules) return { upcomingTours: [], pastTours: [] };
 
-  // Separate upcoming and past tours
-  const now = new Date();
-  const upcomingTours = sortedTours.filter(
-    (tour) => new Date(tour.startDate) >= now,
-  );
-  const pastTours = sortedTours.filter(
-    (tour) => new Date(tour.startDate) < now,
-  );
+    // Sort tours by date (most recent first)
+    const sortedTours = [...schedules].sort(
+      (a, b) =>
+        new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+    );
+
+    // Separate upcoming and past tours
+    const now = new Date();
+    const upcomingTours = sortedTours.filter(
+      (tour) => new Date(tour.startDate) >= now,
+    );
+    const pastTours = sortedTours.filter(
+      (tour) => new Date(tour.startDate) < now,
+    );
+
+    return { upcomingTours, pastTours };
+  };
+
+  const { upcomingTours, pastTours } = processSchedules();
 
   return (
     <div className="space-y-6">
@@ -232,7 +264,7 @@ export default function GuideSchedulePage({
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{guide.schedule.length}</div>
+            <div className="text-2xl font-bold">{schedules?.length || 0}</div>
             <p className="text-xs text-muted-foreground">All assigned tours</p>
           </CardContent>
         </Card>
@@ -252,111 +284,218 @@ export default function GuideSchedulePage({
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Next Tour</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Completed Tours
+            </CardTitle>
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg font-medium">
-              {upcomingTours.length > 0
-                ? formatDate(upcomingTours[0].startDate)
-                : "No upcoming tours"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {upcomingTours.length > 0 ? upcomingTours[0].destination : "N/A"}
-            </p>
+            <div className="text-2xl font-bold">{pastTours.length}</div>
+            <p className="text-xs text-muted-foreground">Past tours</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center gap-4 py-4">
-        <Input placeholder="Search tours..." className="max-w-sm" />
-        <Select defaultValue="all">
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
+      {schedulesError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load schedule data. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingSchedules ? (
+        <ScheduleTableSkeleton />
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Upcoming Tours</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingTours.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Destination</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Participants</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {upcomingTours.map((tour) => (
+                      <TableRow key={tour.id}>
+                        <TableCell className="font-medium">
+                          {tour.destination}
+                          <div className="text-xs text-muted-foreground">
+                            {tour.location}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(tour.startDate)}
+                          <div className="text-xs text-muted-foreground">
+                            to {formatDate(tour.endDate)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {calculateDuration(tour.startDate, tour.endDate)} days
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Users className="mr-1 h-3 w-3 opacity-70" />
+                            {tour.maxParticipants}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(tour.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link
+                                href={`/dashboard/guides/${params.id}/schedule/${tour.id}`}
+                              >
+                                Details
+                              </Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No upcoming tours scheduled for this guide.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Past Tours</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pastTours.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Destination</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Participants</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pastTours.map((tour) => (
+                      <TableRow key={tour.id}>
+                        <TableCell className="font-medium">
+                          {tour.destination}
+                          <div className="text-xs text-muted-foreground">
+                            {tour.location}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(tour.startDate)}
+                          <div className="text-xs text-muted-foreground">
+                            to {formatDate(tour.endDate)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {calculateDuration(tour.startDate, tour.endDate)} days
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Users className="mr-1 h-3 w-3 opacity-70" />
+                            {tour.maxParticipants}
+                          </div>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(tour.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link
+                                href={`/dashboard/guides/${params.id}/schedule/${tour.id}`}
+                              >
+                                Details
+                              </Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No tours scheduled for this guide yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SchedulePageSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-md" />
+          <div>
+            <Skeleton className="h-8 w-[200px]" />
+            <Skeleton className="h-4 w-[300px] mt-2" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-[120px]" />
       </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Destination</TableHead>
-              <TableHead>Dates</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Participants</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedTours.map((tour) => (
-              <TableRow key={tour.id}>
-                <TableCell>
-                  <div className="font-medium">{tour.destination}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {tour.location}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span>{formatDate(tour.startDate)}</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground pl-5">
-                    to {formatDate(tour.endDate)}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {calculateDuration(tour.startDate, tour.endDate)} days
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{tour.participants}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{getStatusBadge(tour.status)}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link
-                      href={`/dashboard/guides/${params.id}/schedule/${tour.id}`}
-                    >
-                      Details
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    Cancel
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-            {sortedTours.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-6">
-                  No tours scheduled for this guide yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array(3)
+          .fill(0)
+          .map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-[100px]" />
+                <Skeleton className="h-4 w-4" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-[50px]" />
+                <Skeleton className="h-4 w-[120px] mt-1" />
+              </CardContent>
+            </Card>
+          ))}
       </div>
+
+      <ScheduleTableSkeleton />
     </div>
+  );
+}
+
+function ScheduleTableSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-[150px]" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {Array(5)
+            .fill(0)
+            .map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

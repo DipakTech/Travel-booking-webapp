@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/dialog";
 
 interface DeleteGuideDialogProps {
-  guideName: string;
+  guideName?: string;
   guideId: string;
 }
 
 export function DeleteGuideDialog({
-  guideName,
+  guideName = "",
   guideId,
 }: DeleteGuideDialogProps) {
   const [isOpen, setIsOpen] = useState(false);

@@ -16,7 +16,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar */}
-          <aside className="hidden md:flex w-64 flex-col border-r bg-white dark:bg-[#0F0F12] dark:border-[#1F1F23]">
+          <aside className="hidden sm:flex w-64 flex-col border-r bg-white dark:bg-[#0F0F12] dark:border-[#1F1F23]">
             <Sidebar />
           </aside>
 

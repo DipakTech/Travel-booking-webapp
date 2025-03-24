@@ -17,10 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
 
-export const metadata = {
-  title: "Add New Guide | Travel Booking Dashboard",
-  description: "Add a new tour guide to the system",
-};
+// export const metadata = {
+//   title: "Add New Guide | Travel Booking Dashboard",
+//   description: "Add a new tour guide to the system",
+// };
 
 export default function AddGuidePage() {
   return (
@@ -60,7 +60,70 @@ function AddGuideForm() {
   const { mutate: createGuide, isPending } = useCreateGuide();
 
   const handleSubmit = async (data: any) => {
-    createGuide(data, {
+    // Map status to availability
+    let availability: "available" | "partially_available" | "unavailable";
+    if (data.status === "active") {
+      availability = "available";
+    } else if (data.status === "on_leave") {
+      availability = "partially_available";
+    } else {
+      availability = "unavailable";
+    }
+
+    // Transform the form data to match the API schema
+    const transformedData = {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      // Transform location string to object
+      location: {
+        country: data.location.split(",").pop()?.trim() || "Unknown Country",
+        region: data.location.split(",").shift()?.trim() || "Unknown Region",
+        city: data.location.includes(",")
+          ? data.location.split(",")[0]?.trim()
+          : undefined,
+      },
+      // Transform languages string to array
+      languages: data.languages
+        .split(",")
+        .map((lang: string) => lang.trim())
+        .filter(Boolean),
+      // Transform specialties string to array
+      specialties: data.specialties
+        .split(",")
+        .map((specialty: string) => specialty.trim())
+        .filter(Boolean),
+      // Transform experience string to object
+      experience: {
+        years: parseInt(data.experience.split(" ")[0]) || 0,
+        level: "intermediate" as
+          | "beginner"
+          | "intermediate"
+          | "expert"
+          | "master",
+        expeditions: 0, // Default expeditions
+      },
+      // Add required fields
+      bio: data.bio,
+      hourlyRate: 25, // Default hourly rate
+      availability, // Use the properly typed variable
+      // Add default values for required fields
+      rating: 0,
+      reviewCount: 0,
+      destinations: [],
+      // Add certifications if provided
+      certifications: data.certification
+        ? [
+            {
+              name: data.certification,
+              issuedBy: "Certification Authority",
+              year: new Date().getFullYear(),
+            },
+          ]
+        : undefined,
+    };
+
+    createGuide(transformedData, {
       onSuccess: () => {
         router.push("/dashboard/guides");
       },
