@@ -207,7 +207,9 @@ export function GuideList() {
               onChange={handleSearchChange}
             />
           </div>
-          <Button type="submit">Search</Button>
+          {/* <Button type="submit" className="px-4 py-1" size="sm">
+            Search
+          </Button> */}
         </form>
 
         <Select value={searchParams.status} onValueChange={handleStatusChange}>
