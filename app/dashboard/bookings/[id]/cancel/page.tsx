@@ -1,29 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ArrowLeft, AlertTriangle, Ban } from "lucide-react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -32,406 +13,406 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useBooking, useUpdateBooking } from "@/lib/hooks/use-bookings";
 import { useToast } from "@/components/ui/use-toast";
-import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
-// Mock bookings data
-const mockBookings = [
-  {
-    id: "1",
-    customer: {
-      name: "Alex Johnson",
-      email: "alex.johnson@example.com",
-      phone: "+1 (555) 123-4567",
-    },
-    destination: "Paris, France",
-    startDate: "2023-11-15",
-    endDate: "2023-11-22",
-    status: "confirmed",
-    travelers: 2,
-    totalAmount: 2450,
-    paymentStatus: "paid",
-  },
-  {
-    id: "2",
-    customer: {
-      name: "Maria Garcia",
-      email: "maria.garcia@example.com",
-      phone: "+1 (555) 987-6543",
-    },
-    destination: "Tokyo, Japan",
-    startDate: "2023-12-05",
-    endDate: "2023-12-15",
-    status: "pending",
-    travelers: 1,
-    totalAmount: 3200,
-    paymentStatus: "deposit",
-  },
-];
-
-// Form schema
 const cancelFormSchema = z.object({
-  reason: z.enum(
-    ["customer_request", "emergency", "scheduling_conflict", "other"],
-    {
-      required_error: "Please select a cancellation reason.",
-    },
-  ),
-  refundAmount: z.number().min(0, {
-    message: "Refund amount cannot be negative.",
-  }),
-  notes: z.string().min(10, {
-    message: "Notes must be at least 10 characters.",
+  reason: z
+    .string()
+    .min(10, "Cancellation reason must be at least 10 characters"),
+  refundType: z.enum(["full", "partial", "none"], {
+    required_error: "Please select a refund type",
   }),
 });
 
-export default function CancelBookingPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function CancelBookingPage() {
+  const params = useParams();
   const router = useRouter();
+  const bookingId = params.id as string;
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [booking, setBooking] = useState<(typeof mockBookings)[0] | undefined>(
-    undefined,
-  );
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  // Find the booking by ID
-  useEffect(() => {
-    const foundBooking = mockBookings.find((b) => b.id === params.id);
-    if (!foundBooking) {
-      router.push("/dashboard/bookings");
-    } else {
-      setBooking(foundBooking);
-    }
-  }, [params.id, router]);
+  // Fetch booking data
+  const { data: booking, isLoading, error } = useBooking(bookingId);
 
-  // Calculate default refund amount (75% of total if status is confirmed)
-  const defaultRefundAmount = booking
-    ? booking.status === "confirmed"
-      ? Math.round(booking.totalAmount * 0.75)
-      : booking.totalAmount
-    : 0;
+  // Setup mutation for updating booking
+  const updateBooking = useUpdateBooking(bookingId);
 
   // Initialize form
   const form = useForm<z.infer<typeof cancelFormSchema>>({
     resolver: zodResolver(cancelFormSchema),
     defaultValues: {
-      reason: "customer_request",
-      refundAmount: defaultRefundAmount,
-      notes: "",
+      reason: "",
+      refundType: "none",
     },
   });
 
-  // Update form values when booking is loaded
-  useEffect(() => {
-    if (booking) {
-      form.setValue("refundAmount", defaultRefundAmount);
-    }
-  }, [booking, defaultRefundAmount, form]);
+  // Handle form submission
+  const handleSubmit = async (data: z.infer<typeof cancelFormSchema>) => {
+    setShowConfirmDialog(true);
+  };
 
-  async function onSubmit(values: z.infer<typeof cancelFormSchema>) {
-    if (!booking) return;
+  // Handle actual cancellation
+  const confirmCancellation = async () => {
+    setIsCancelling(true);
+    setShowConfirmDialog(false);
 
-    setIsSubmitting(true);
+    const formData = form.getValues();
 
     try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // In a real app, you would send this data to an API endpoint
+      const updatedData = {
+        status: "cancelled" as "cancelled",
+        notes: booking?.notes
+          ? [
+              ...booking.notes,
+              {
+                content: `Booking cancelled. Reason: ${formData.reason}. Refund type: ${formData.refundType}`,
+                date: new Date(),
+                author: "System",
+              },
+            ]
+          : [
+              {
+                content: `Booking cancelled. Reason: ${formData.reason}. Refund type: ${formData.refundType}`,
+                date: new Date(),
+                author: "System",
+              },
+            ],
+      };
 
-      // Show success message
+      await updateBooking.mutateAsync(updatedData);
+
       toast({
         title: "Booking cancelled",
-        description: `The booking for ${booking.customer.name} has been cancelled.`,
+        description: `Booking #${booking?.bookingNumber} has been cancelled successfully.`,
       });
 
-      // Redirect back to booking details
-      router.push(`/dashboard/bookings/${params.id}`);
+      router.push(`/dashboard/bookings/${bookingId}`);
     } catch (error) {
+      console.error("Error cancelling booking:", error);
       toast({
         title: "Error",
-        description:
-          "There was a problem cancelling the booking. Please try again.",
+        description: "There was a problem cancelling the booking.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsCancelling(false);
     }
-  }
+  };
 
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }
-
-  if (!booking) {
+  // Loading state
+  if (isLoading) {
     return (
-      <div className="container mx-auto py-10">Loading booking details...</div>
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !booking) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Failed to load booking data. Please try again later.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Check if booking is already cancelled
+  if (booking.status === "cancelled") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/dashboard/bookings/${bookingId}`}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Back</span>
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              Cancel Booking
+            </h2>
+            <p className="text-muted-foreground">
+              Booking #{booking.bookingNumber} - {booking.customer.name}
+            </p>
+          </div>
+        </div>
+
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Already Cancelled</AlertTitle>
+          <AlertDescription>
+            This booking has already been cancelled and cannot be cancelled
+            again.
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex justify-end">
+          <Button variant="outline" asChild>
+            <Link href={`/dashboard/bookings/${bookingId}`}>
+              Return to Booking
+            </Link>
+          </Button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/bookings/${params.id}`}
-          className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to booking details
-        </Link>
-      </div>
-
-      <div className="grid gap-6">
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" asChild>
+          <Link href={`/dashboard/bookings/${bookingId}`}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Back</span>
+          </Link>
+        </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Cancel Booking</h1>
+          <h2 className="text-2xl font-bold tracking-tight">Cancel Booking</h2>
           <p className="text-muted-foreground">
-            Cancel the booking for {booking.customer.name} to{" "}
-            {booking.destination}
+            Booking #{booking.bookingNumber} - {booking.customer.name}
           </p>
         </div>
+      </div>
 
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Warning</AlertTitle>
-          <AlertDescription>
-            Cancelling this booking will notify the customer. This action cannot
-            be undone.
-          </AlertDescription>
-        </Alert>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Warning</AlertTitle>
+        <AlertDescription>
+          You are about to cancel this booking. This action cannot be undone.
+        </AlertDescription>
+      </Alert>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking Information</CardTitle>
-            <CardDescription>
-              Review the booking details before cancellation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <h3 className="font-medium">Customer</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {booking.customer.name}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Destination</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {booking.destination}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Travel Period</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {formatDate(booking.startDate)} -{" "}
-                    {formatDate(booking.endDate)}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Total Amount</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    ${booking.totalAmount.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <h3 className="font-medium">Status</h3>
-                  <div className="mt-1">
-                    <Badge
-                      variant={
-                        booking.status === "confirmed" ? "default" : "outline"
-                      }
-                      className={
-                        booking.status === "confirmed"
-                          ? "bg-green-100 text-green-800 hover:bg-green-100"
-                          : ""
-                      }
-                    >
-                      {booking.status.charAt(0).toUpperCase() +
-                        booking.status.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-medium">Travelers</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {booking.travelers}{" "}
-                    {booking.travelers === 1 ? "person" : "people"}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Payment</h3>
-                  <div className="mt-1">
-                    <Badge
-                      variant="outline"
-                      className={
-                        booking.paymentStatus === "paid"
-                          ? "bg-blue-100 text-blue-800 hover:bg-blue-100"
-                          : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-                      }
-                    >
-                      {booking.paymentStatus.charAt(0).toUpperCase() +
-                        booking.paymentStatus.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-medium">Customer Contact</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {booking.customer.email}
-                  </p>
-                </div>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking Information</CardTitle>
+          <CardDescription>
+            Review booking details before cancellation
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="font-medium">Customer</p>
+              <p className="text-sm text-muted-foreground">
+                {booking.customer.name}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <p className="font-medium">Destination</p>
+              <p className="text-sm text-muted-foreground">
+                {booking.destination.name}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Dates</p>
+              <p className="text-sm text-muted-foreground">
+                {new Date(booking.dates.startDate).toLocaleDateString()} to{" "}
+                {new Date(booking.dates.endDate).toLocaleDateString()}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Status</p>
+              <p className="text-sm text-muted-foreground capitalize">
+                {booking.status}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Total Amount</p>
+              <p className="text-sm text-muted-foreground">
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: booking.payment.currency,
+                }).format(booking.payment.totalAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Payment Status</p>
+              <p className="text-sm text-muted-foreground capitalize">
+                {booking.payment.status}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Cancellation Details</CardTitle>
-            <CardDescription>
-              Provide information about this cancellation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="reason"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cancellation Reason</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+      <Card>
+        <CardHeader>
+          <CardTitle>Cancellation Details</CardTitle>
+          <CardDescription>Provide a reason for cancellation</CardDescription>
+        </CardHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)}>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason for Cancellation</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select reason for cancellation" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="customer_request">
-                        Customer Request
-                      </SelectItem>
-                      <SelectItem value="emergency">
-                        Emergency/Unforeseen Circumstances
-                      </SelectItem>
-                      <SelectItem value="scheduling_conflict">
-                        Scheduling Conflict
-                      </SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="refundAmount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Refund Amount ($)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                        <span className="text-gray-500">$</span>
-                      </div>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={booking.totalAmount}
-                        step={0.01}
-                        className="pl-7"
+                      <Textarea
+                        placeholder="Please explain why this booking is being cancelled..."
+                        className="min-h-32"
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
                       />
-                    </div>
-                  </FormControl>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Maximum refund: ${booking.totalAmount.toLocaleString()}
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cancellation Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Please provide details regarding this cancellation..."
-                      className="min-h-[120px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="border-t px-6 py-4">
-            <div className="flex justify-between w-full">
+              <FormField
+                control={form.control}
+                name="refundType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Refund Option</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="full" id="full-refund" />
+                          <FormLabel
+                            htmlFor="full-refund"
+                            className="font-normal"
+                          >
+                            Full Refund
+                          </FormLabel>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="partial" id="partial-refund" />
+                          <FormLabel
+                            htmlFor="partial-refund"
+                            className="font-normal"
+                          >
+                            Partial Refund
+                          </FormLabel>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="none" id="no-refund" />
+                          <FormLabel
+                            htmlFor="no-refund"
+                            className="font-normal"
+                          >
+                            No Refund
+                          </FormLabel>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+
+            <CardFooter className="flex justify-end space-x-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push(`/dashboard/bookings/${params.id}`)}
+                onClick={() => router.push(`/dashboard/bookings/${bookingId}`)}
               >
-                Cancel
+                Return to Booking
               </Button>
               <Button
                 type="submit"
                 variant="destructive"
-                disabled={isSubmitting}
+                disabled={isCancelling}
               >
-                {isSubmitting ? (
-                  <div className="flex items-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Processing
-                  </div>
-                ) : (
-                  "Confirm Cancellation"
+                {isCancelling && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
+                <Ban className="mr-2 h-4 w-4" />
+                Cancel Booking
               </Button>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
+            </CardFooter>
+          </form>
+        </Form>
+      </Card>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Cancellation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this booking? This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm">
+              <span className="font-medium">Booking:</span> #
+              {booking.bookingNumber}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">Customer:</span>{" "}
+              {booking.customer.name}
+            </p>
+            <p className="text-sm">
+              <span className="font-medium">Refund type:</span>{" "}
+              {form.getValues("refundType")}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmCancellation}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Confirm Cancellation"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

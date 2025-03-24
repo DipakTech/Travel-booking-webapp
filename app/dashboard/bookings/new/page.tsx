@@ -4,8 +4,14 @@ import { BookingForm } from "@/components/dashboard/bookings/BookingForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCreateBooking } from "@/lib/hooks/use-bookings";
+import { toast } from "sonner";
 
 export default function NewBookingPage() {
+  const router = useRouter();
+  const { mutate: createBooking, isPending } = useCreateBooking();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -25,10 +31,18 @@ export default function NewBookingPage() {
 
       <BookingForm
         onSubmit={(data) => {
-          // In a real application, this would send the data to an API
-          console.log(data);
-          // And then redirect to the bookings list
+          createBooking(data, {
+            onSuccess: () => {
+              toast.success("Booking created successfully");
+              router.push("/dashboard/bookings");
+              router.refresh();
+            },
+            onError: (error) => {
+              toast.error(error.message || "Failed to create booking");
+            },
+          });
         }}
+        isSubmitting={isPending}
       />
     </div>
   );

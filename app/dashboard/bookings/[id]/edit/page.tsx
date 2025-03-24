@@ -1,558 +1,91 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  CalendarDays,
-  MapPin,
-  Users,
-  CreditCard,
-  Save,
-} from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { BookingForm } from "@/components/dashboard/bookings/BookingForm";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { format } from "date-fns";
-import { DatePicker } from "@/components/ui/date-picker";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useBooking, useUpdateBooking } from "@/lib/hooks/use-bookings";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
-// Mock data - in a real app, this would come from a database fetch
-const bookings = [
-  {
-    id: "B001",
-    destinationName: "Everest Base Camp Trek",
-    destinationId: "D001",
-    location: "Nepal",
-    customerName: "Alex Morgan",
-    customerEmail: "alex.morgan@example.com",
-    customerPhone: "+1 234 567 8901",
-    customerAvatar: "/avatars/01.png",
-    startDate: "2023-10-15",
-    endDate: "2023-10-28",
-    travelers: 2,
-    totalAmount: 3200,
-    status: "confirmed",
-    paymentStatus: "paid",
-    notes: "Customer requested vegetarian meals throughout the trek.",
-    guideRequired: true,
-    guideAssigned: "John Sherpa",
-    specialRequirements:
-      "Vegetarian meals required. Extra oxygen tanks for high altitude.",
-  },
-];
-
-// Validation schema
-const formSchema = z.object({
-  destinationName: z.string().min(1, {
-    message: "Destination name is required",
-  }),
-  location: z.string().min(1, {
-    message: "Location is required",
-  }),
-  customerName: z.string().min(1, {
-    message: "Customer name is required",
-  }),
-  customerEmail: z.string().email({
-    message: "Invalid email address",
-  }),
-  customerPhone: z.string().min(1, {
-    message: "Phone number is required",
-  }),
-  startDate: z.date({
-    required_error: "Start date is required",
-  }),
-  endDate: z.date({
-    required_error: "End date is required",
-  }),
-  travelers: z.coerce.number().int().min(1, {
-    message: "At least 1 traveler is required",
-  }),
-  totalAmount: z.coerce.number().min(0, {
-    message: "Total amount must be a positive number",
-  }),
-  status: z.enum(["confirmed", "pending", "cancelled"], {
-    required_error: "Status is required",
-  }),
-  paymentStatus: z.enum(["paid", "pending", "refunded"], {
-    required_error: "Payment status is required",
-  }),
-  notes: z.string().optional(),
-  guideRequired: z.boolean().default(false),
-  guideAssigned: z.string().optional(),
-  specialRequirements: z.string().optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-export default function EditBookingPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function EditBookingPage() {
+  const params = useParams();
   const router = useRouter();
-  const [booking, setBooking] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const bookingId = params.id as string;
+  const { toast } = useToast();
 
-  // In a real app, you would fetch the booking data from an API
-  useEffect(() => {
-    const fetchedBooking = bookings.find((b) => b.id === params.id);
+  // Fetch booking data
+  const { data: booking, isLoading, error } = useBooking(bookingId);
 
-    if (fetchedBooking) {
-      setBooking(fetchedBooking);
-    }
+  // Setup mutation for updating booking
+  const updateBooking = useUpdateBooking(bookingId);
 
-    setLoading(false);
-  }, [params.id]);
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      destinationName: booking?.destinationName || "",
-      location: booking?.location || "",
-      customerName: booking?.customerName || "",
-      customerEmail: booking?.customerEmail || "",
-      customerPhone: booking?.customerPhone || "",
-      startDate: booking?.startDate ? new Date(booking.startDate) : undefined,
-      endDate: booking?.endDate ? new Date(booking.endDate) : undefined,
-      travelers: booking?.travelers || 1,
-      totalAmount: booking?.totalAmount || 0,
-      status:
-        (booking?.status as "confirmed" | "pending" | "cancelled") || "pending",
-      paymentStatus:
-        (booking?.paymentStatus as "paid" | "pending" | "refunded") ||
-        "pending",
-      notes: booking?.notes || "",
-      guideRequired: booking?.guideRequired || false,
-      guideAssigned: booking?.guideAssigned || "",
-      specialRequirements: booking?.specialRequirements || "",
-    },
-  });
-
-  // Update form values when booking data is loaded
-  useEffect(() => {
-    if (booking) {
-      form.reset({
-        destinationName: booking.destinationName,
-        location: booking.location,
-        customerName: booking.customerName,
-        customerEmail: booking.customerEmail,
-        customerPhone: booking.customerPhone,
-        startDate: new Date(booking.startDate),
-        endDate: new Date(booking.endDate),
-        travelers: booking.travelers,
-        totalAmount: booking.totalAmount,
-        status: booking.status,
-        paymentStatus: booking.paymentStatus,
-        notes: booking.notes || "",
-        guideRequired: booking.guideRequired || false,
-        guideAssigned: booking.guideAssigned || "",
-        specialRequirements: booking.specialRequirements || "",
+  // Handle form submission
+  const handleSubmit = async (data: any) => {
+    try {
+      await updateBooking.mutateAsync(data);
+      toast({
+        title: "Booking updated",
+        description: "The booking has been successfully updated.",
+      });
+      router.push(`/dashboard/bookings/${bookingId}`);
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem updating the booking.",
+        variant: "destructive",
       });
     }
-  }, [booking, form]);
+  };
 
-  if (loading) {
-    return <div>Loading...</div>;
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  if (!booking) {
-    return <div>Booking not found</div>;
-  }
-
-  function onSubmit(data: FormValues) {
-    setIsSaving(true);
-
-    // In a real app, you would send the data to an API
-    console.log("Updating booking with data:", data);
-
-    // Simulate API delay
-    setTimeout(() => {
-      setIsSaving(false);
-      router.push(`/dashboard/bookings/${params.id}`);
-    }, 1000);
+  // Error state
+  if (error || !booking) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Failed to load booking data. Please try again later.
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/dashboard/bookings/${params.id}`}>
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back</span>
-            </Link>
-          </Button>
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">
-              Edit Booking #{booking.id}
-            </h2>
-            <p className="text-muted-foreground">
-              Update booking details and customer information
-            </p>
-          </div>
-        </div>
-        <Button type="submit" form="booking-form" disabled={isSaving}>
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? "Saving..." : "Save Changes"}
+      <div className="flex items-center gap-4">
+        <Button variant="outline" size="icon" asChild>
+          <Link href={`/dashboard/bookings/${bookingId}`}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Back</span>
+          </Link>
         </Button>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Edit Booking</h2>
+          <p className="text-muted-foreground">
+            Booking #{booking.bookingNumber}
+          </p>
+        </div>
       </div>
 
-      <Form {...form}>
-        <form
-          id="booking-form"
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-8"
-        >
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Destination Information Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Destination Information</CardTitle>
-                <CardDescription>
-                  Update the destination details for this booking
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="destinationName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Destination Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <Input {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <DatePicker
-                            date={field.value}
-                            setDate={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <DatePicker
-                            date={field.value}
-                            setDate={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="travelers"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Number of Travelers</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <Users className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <Input type="number" min={1} {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="guideRequired"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <input
-                          type="checkbox"
-                          checked={field.value}
-                          onChange={field.onChange}
-                          className="h-4 w-4 mt-1"
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Guide Required</FormLabel>
-                        <FormDescription>
-                          Assign a tour guide to this booking
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                {form.watch("guideRequired") && (
-                  <FormField
-                    control={form.control}
-                    name="guideAssigned"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assigned Guide</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Enter guide name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Customer Information Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Information</CardTitle>
-                <CardDescription>
-                  Update the customer information for this booking
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="customerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Customer Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customerEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="customerPhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="specialRequirements"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Special Requirements</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Any special requirements or notes"
-                          className="resize-none min-h-[120px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Booking Status Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Booking Status</CardTitle>
-                <CardDescription>
-                  Update the status of this booking
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Booking Status</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select booking status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="confirmed">Confirmed</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="paymentStatus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Status</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="paid">Paid</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="refunded">Refunded</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Total Amount ($)</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <Input type="number" min={0} step={0.01} {...field} />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Additional Notes Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Notes</CardTitle>
-                <CardDescription>
-                  Add any additional notes or comments for this booking
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Add any internal notes here..."
-                          className="resize-none min-h-[200px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-              <CardFooter className="border-t px-6 py-4">
-                <Button type="submit" className="ml-auto" disabled={isSaving}>
-                  {isSaving ? "Saving changes..." : "Save changes"}
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </form>
-      </Form>
+      <BookingForm
+        booking={booking}
+        onSubmit={handleSubmit}
+        isSubmitting={updateBooking.isPending}
+      />
     </div>
   );
 }

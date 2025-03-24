@@ -14,6 +14,8 @@ import {
   Users,
   MapPin,
   CreditCard,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -23,87 +25,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
-interface Booking {
-  id: string;
-  destinationName: string;
-  location: string;
-  customerName: string;
-  customerEmail: string;
-  customerAvatar?: string;
-  startDate: string;
-  endDate: string;
-  travelers: number;
-  totalAmount: number;
-  status: "confirmed" | "pending" | "cancelled";
+import { useBookings } from "@/lib/hooks/use-bookings";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+
+interface BookingListProps {
+  filters?: {
+    search?: string;
+    status?: string;
+    destination?: string;
+    guide?: string;
+    startDate?: string;
+    endDate?: string;
+  };
+  className?: string;
 }
 
-const bookings: Booking[] = [
-  {
-    id: "B001",
-    destinationName: "Everest Base Camp Trek",
-    location: "Nepal",
-    customerName: "Alex Morgan",
-    customerEmail: "alex.morgan@example.com",
-    customerAvatar: "/avatars/01.png",
-    startDate: "2023-10-15",
-    endDate: "2023-10-28",
-    travelers: 2,
-    totalAmount: 3200,
-    status: "confirmed",
-  },
-  {
-    id: "B002",
-    destinationName: "Annapurna Circuit",
-    location: "Nepal",
-    customerName: "Chris Johnson",
-    customerEmail: "chris.j@example.com",
-    startDate: "2023-11-05",
-    endDate: "2023-11-20",
-    travelers: 4,
-    totalAmount: 5800,
-    status: "pending",
-  },
-  {
-    id: "B003",
-    destinationName: "Chitwan National Park Safari",
-    location: "Nepal",
-    customerName: "Sarah Williams",
-    customerEmail: "sarah.w@example.com",
-    customerAvatar: "/avatars/03.png",
-    startDate: "2023-09-25",
-    endDate: "2023-09-30",
-    travelers: 2,
-    totalAmount: 1200,
-    status: "confirmed",
-  },
-  {
-    id: "B004",
-    destinationName: "Upper Mustang Trek",
-    location: "Nepal",
-    customerName: "Michael Davies",
-    customerEmail: "m.davies@example.com",
-    startDate: "2023-10-08",
-    endDate: "2023-10-18",
-    travelers: 1,
-    totalAmount: 2100,
-    status: "cancelled",
-  },
-  {
-    id: "B005",
-    destinationName: "Langtang Valley Trek",
-    location: "Nepal",
-    customerName: "Emma Wilson",
-    customerEmail: "emma.w@example.com",
-    customerAvatar: "/avatars/05.png",
-    startDate: "2023-11-12",
-    endDate: "2023-11-22",
-    travelers: 3,
-    totalAmount: 3600,
-    status: "confirmed",
-  },
-];
+export function BookingList({ filters, className }: BookingListProps) {
+  // Fetch bookings data using the hook
+  const { data, isLoading, error } = useBookings(filters);
 
-export function BookingList() {
   // Function to format date in a more readable format
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = {
@@ -115,7 +56,7 @@ export function BookingList() {
   };
 
   // Function to get status badge styles
-  const getStatusBadge = (status: Booking["status"]) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
         return (
@@ -135,13 +76,56 @@ export function BookingList() {
             Cancelled
           </Badge>
         );
+      case "completed":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+            Completed
+          </Badge>
+        );
+      case "refunded":
+        return (
+          <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">
+            Refunded
+          </Badge>
+        );
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className={cn("flex justify-center items-center py-8", className)}>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Alert variant="destructive" className={className}>
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>
+          Failed to load bookings. Please try again later.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Handle empty state
+  if (!data?.bookings || data.bookings.length === 0) {
+    return (
+      <div className={cn("text-center py-8 text-muted-foreground", className)}>
+        No bookings found with the current filters.
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-md border">
+    <div className={cn("rounded-md border", className)}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -155,38 +139,40 @@ export function BookingList() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {bookings.map((booking) => (
+          {data.bookings.map((booking) => (
             <TableRow key={booking.id}>
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-8 w-8">
-                    {booking.customerAvatar ? (
+                    {booking.customer.avatar ? (
                       <AvatarImage
-                        src={booking.customerAvatar}
-                        alt={booking.customerName}
+                        src={booking.customer.avatar}
+                        alt={booking.customer.name}
                       />
                     ) : null}
                     <AvatarFallback>
-                      {booking.customerName
+                      {booking.customer.name
                         .split(" ")
                         .map((name) => name[0])
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col">
-                    <span className="font-medium">{booking.customerName}</span>
+                    <span className="font-medium">{booking.customer.name}</span>
                     <span className="text-sm text-muted-foreground">
-                      {booking.customerEmail}
+                      {booking.customer.email}
                     </span>
                   </div>
                 </div>
               </TableCell>
               <TableCell>
                 <div className="flex flex-col">
-                  <span className="font-medium">{booking.destinationName}</span>
+                  <span className="font-medium">
+                    {booking.destination.name}
+                  </span>
                   <div className="flex items-center text-sm text-muted-foreground">
                     <MapPin className="mr-1 h-3.5 w-3.5" />
-                    {booking.location}
+                    {booking.destination.location}
                   </div>
                 </div>
               </TableCell>
@@ -195,10 +181,10 @@ export function BookingList() {
                   <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
                   <div className="flex flex-col">
                     <span className="text-sm">
-                      {formatDate(booking.startDate)}
+                      {formatDate(booking.dates.startDate.toString())}
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      to {formatDate(booking.endDate)}
+                      to {formatDate(booking.dates.endDate.toString())}
                     </span>
                   </div>
                 </div>
@@ -206,13 +192,13 @@ export function BookingList() {
               <TableCell>
                 <div className="flex items-center gap-1">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  {booking.travelers}
+                  {booking.travelers.total}
                 </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
                   <CreditCard className="h-4 w-4 text-muted-foreground" />$
-                  {booking.totalAmount.toLocaleString()}
+                  {booking.payment.totalAmount.toLocaleString()}
                 </div>
               </TableCell>
               <TableCell>{getStatusBadge(booking.status)}</TableCell>
