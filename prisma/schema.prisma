@@ -14,16 +14,17 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String?
-  email         String    @unique
+  email         String         @unique
   password      String?
   image         String?
   emailVerified DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   accounts      Account[]
   sessions      Session[]
+  notifications Notification[]
 }
 
 model Account {
@@ -51,4 +52,303 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Destination {
+  id            String   @id @default(cuid())
+  name          String
+  country       String
+  region        String
+  latitude      Float
+  longitude     Float
+  description   String   @db.Text
+  images        String[]
+  featured      Boolean  @default(false)
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0)
+  priceAmount   Float
+  priceCurrency String   @default("USD")
+  pricePeriod   String
+  minDays       Int
+  maxDays       Int
+  difficulty    String
+  activities    String[]
+  seasons       String[]
+  amenities     String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  availableGuides GuideDestination[]
+  bookings        Booking[]
+  reviews         Review[]
+}
+
+model Guide {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  phone           String
+  photo           String?
+  country         String
+  region          String
+  city            String?
+  languages       String[]
+  specialties     String[]
+  experienceYears Int
+  experienceLevel String
+  expeditions     Int?
+  bio             String   @db.Text
+  hourlyRate      Float
+  availability    String
+  rating          Float    @default(0)
+  reviewCount     Int      @default(0)
+  instagram       String?
+  facebook        String?
+  twitter         String?
+  linkedin        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  destinations   GuideDestination[]
+  bookings       Booking[]
+  reviews        Review[]
+  certifications Certification[]
+  availableDates AvailableDate[]
+}
+
+model Certification {
+  id         String @id @default(cuid())
+  name       String
+  issuedBy   String
+  year       Int
+  expiryYear Int?
+  guideId    String
+  guide      Guide  @relation(fields: [guideId], references: [id], onDelete: Cascade)
+}
+
+model AvailableDate {
+  id      String   @id @default(cuid())
+  from    DateTime
+  to      DateTime
+  guideId String
+  guide   Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+}
+
+model GuideDestination {
+  guideId       String
+  destinationId String
+  guide         Guide       @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@id([guideId, destinationId])
+}
+
+model Booking {
+  id              String    @id @default(cuid())
+  bookingNumber   String    @unique
+  status          String
+  startDate       DateTime
+  endDate         DateTime
+  duration        Int
+  adultsCount     Int
+  childrenCount   Int       @default(0)
+  infantsCount    Int       @default(0)
+  totalTravelers  Int
+  totalAmount     Float
+  currency        String    @default("USD")
+  paymentStatus   String
+  depositAmount   Float?
+  depositPaid     Boolean   @default(false)
+  balanceDueDate  DateTime?
+  specialRequests String[]  @default([])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id])
+  guideId       String?
+  guide         Guide?      @relation(fields: [guideId], references: [id])
+
+  accommodations   Accommodation[]
+  transportation   Transportation[]
+  activities       BookingActivity[]
+  equipmentRental  EquipmentRental[]
+  transactions     Transaction[]
+  documents        Document[]
+  notes            Note[]
+  emergencyContact EmergencyContact?
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  phone       String?
+  avatar      String?
+  nationality String?
+  street      String?
+  city        String?
+  state       String?
+  postalCode  String?
+  country     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  bookings Booking[]
+  reviews  Review[]
+}
+
+model Accommodation {
+  id        String    @id @default(cuid())
+  type      String
+  name      String?
+  location  String?
+  checkIn   DateTime?
+  checkOut  DateTime?
+  bookingId String
+  booking   Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Transportation {
+  id                String    @id @default(cuid())
+  type              String
+  details           String?
+  departureDate     DateTime?
+  departureLocation String?
+  arrivalDate       DateTime?
+  arrivalLocation   String?
+  bookingId         String
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model BookingActivity {
+  id        String    @id @default(cuid())
+  name      String
+  date      DateTime?
+  duration  String?
+  included  Boolean   @default(true)
+  bookingId String
+  booking   Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentRental {
+  id           String  @id @default(cuid())
+  item         String
+  quantity     Int
+  pricePerUnit Float
+  bookingId    String
+  booking      Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  date      DateTime
+  amount    Float
+  method    String
+  status    String
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  type        String // success, info, warning, error
+  read        Boolean  @default(false)
+  timestamp   DateTime @default(now())
+  time        String? // "2 minutes ago", "3 hours ago", etc.
+  date        String? // "Today", "Yesterday", etc.
+  actionUrl   String?
+  actionLabel String?
+  recipientId String // User ID who should receive this notification
+
+  // Optional relation data
+  relatedEntityType String? // "booking", "guide", etc.
+  relatedEntityId   String?
+  relatedEntityName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([read])
+  @@index([type])
+  @@index([timestamp])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  type       String
+  name       String
+  url        String
+  uploadDate DateTime
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  date      DateTime
+  author    String
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model EmergencyContact {
+  id           String  @id @default(cuid())
+  contactName  String
+  relationship String
+  phone        String
+  email        String?
+  bookingId    String  @unique
+  booking      Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  title          String
+  content        String   @db.Text
+  rating         Int
+  date           DateTime
+  photos         String[]
+  highlights     String[]
+  verified       Boolean  @default(false)
+  featured       Boolean  @default(false)
+  helpfulCount   Int      @default(0)
+  unhelpfulCount Int      @default(0)
+  tags           String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  authorId      String
+  author        Customer     @relation(fields: [authorId], references: [id])
+  destinationId String?
+  destination   Destination? @relation(fields: [destinationId], references: [id])
+  guideId       String?
+  guide         Guide?       @relation(fields: [guideId], references: [id])
+
+  // Trip details
+  tripStartDate DateTime?
+  tripEndDate   DateTime?
+  tripDuration  Int?
+  tripType      String?
+
+  // Response
+  responseContent String?   @db.Text
+  responseDate    DateTime?
+  responderName   String?
+  responderRole   String?
+  responderId     String?
 }
