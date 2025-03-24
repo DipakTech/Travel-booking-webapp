@@ -8,46 +8,26 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-const data = [
-  {
-    name: "Jan",
-    bookings: 4,
-    revenue: 2400,
-  },
-  {
-    name: "Feb",
-    bookings: 3,
-    revenue: 1398,
-  },
-  {
-    name: "Mar",
-    bookings: 5,
-    revenue: 9800,
-  },
-  {
-    name: "Apr",
-    bookings: 6,
-    revenue: 3908,
-  },
-  {
-    name: "May",
-    bookings: 4,
-    revenue: 4800,
-  },
-  {
-    name: "Jun",
-    bookings: 7,
-    revenue: 3800,
-  },
-];
+import { useDashboardStats } from "@/lib/hooks/use-dashboard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function BookingStats() {
+  const { data, isLoading, error } = useDashboardStats();
+
+  // Show a loading skeleton if data is still loading
+  if (isLoading || error || !data) {
+    return (
+      <div className="flex items-center justify-center h-[350px]">
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[350px]">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          data={data}
+          data={data.charts.monthlyData}
           margin={{
             top: 5,
             right: 10,
@@ -77,6 +57,7 @@ export function BookingStats() {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}
+            name="Bookings"
           />
           <Line
             type="monotone"
@@ -85,6 +66,7 @@ export function BookingStats() {
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}
+            name="Revenue"
           />
         </LineChart>
       </ResponsiveContainer>

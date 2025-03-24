@@ -1,83 +1,71 @@
+"use client";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-
-interface Booking {
-  id: string;
-  destination: string;
-  image: string;
-  date: string;
-  status: "upcoming" | "ongoing" | "completed" | "cancelled";
-  amount: number;
-}
-
-const bookings: Booking[] = [
-  {
-    id: "B12345",
-    destination: "Bali, Indonesia",
-    image: "/destinations/bali.jpg",
-    date: "May 24, 2023",
-    status: "upcoming",
-    amount: 1240,
-  },
-  {
-    id: "B12346",
-    destination: "Paris, France",
-    image: "/destinations/paris.jpg",
-    date: "April 10, 2023",
-    status: "completed",
-    amount: 1780,
-  },
-  {
-    id: "B12347",
-    destination: "Tokyo, Japan",
-    image: "/destinations/tokyo.jpg",
-    date: "March 15, 2023",
-    status: "completed",
-    amount: 2100,
-  },
-  {
-    id: "B12348",
-    destination: "New York, USA",
-    image: "/destinations/newyork.jpg",
-    date: "February 3, 2023",
-    status: "cancelled",
-    amount: 1450,
-  },
-];
+import { Card, CardContent } from "@/components/ui/card";
+import { useDashboardStats } from "@/lib/hooks/use-dashboard";
+import { useBookings } from "@/lib/hooks/use-bookings";
+import { formatDistanceToNow } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function RecentBookings() {
+  const { data: bookingsData, isLoading } = useBookings({
+    limit: 5,
+  });
+
+  if (isLoading || !bookingsData) {
+    return (
+      <div className="space-y-4">
+        {Array(5)
+          .fill(0)
+          .map((_, i) => (
+            <div key={i} className="flex items-center gap-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+              <Skeleton className="ml-auto h-6 w-20" />
+            </div>
+          ))}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {bookings.map((booking) => (
-        <div key={booking.id} className="flex items-center">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={booking.image} alt={booking.destination} />
+      {bookingsData.bookings.map((booking) => (
+        <div key={booking.id} className="flex items-center gap-4">
+          <Avatar className="h-12 w-12">
+            <AvatarImage
+              src={booking.customer.avatar || ""}
+              alt={booking.customer.name}
+            />
             <AvatarFallback>
-              {booking.destination.substring(0, 2)}
+              {booking.customer.name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="ml-4 space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {booking.destination}
+          <div className="space-y-1">
+            <p className="font-medium leading-none">{booking.customer.name}</p>
+            <p className="text-sm text-muted-foreground">
+              {booking.destination.name}
             </p>
-            <p className="text-sm text-muted-foreground">{booking.date}</p>
           </div>
-          <div className="ml-auto flex flex-col items-end">
+          <div className="ml-auto">
             <Badge
+              className="font-normal"
               variant={
-                booking.status === "upcoming"
-                  ? "outline"
-                  : booking.status === "ongoing"
+                booking.status === "confirmed"
                   ? "default"
-                  : booking.status === "completed"
+                  : booking.status === "pending"
                   ? "secondary"
-                  : "destructive"
+                  : booking.status === "cancelled"
+                  ? "destructive"
+                  : "outline"
               }
-              className="capitalize"
             >
               {booking.status}
             </Badge>
-            <p className="text-sm font-medium">${booking.amount}</p>
           </div>
         </div>
       ))}

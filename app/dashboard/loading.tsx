@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Card,
   CardContent,
@@ -7,17 +5,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, Calendar, Users, MapPin, DollarSign } from "lucide-react";
-import Link from "next/link";
-import { RecentBookings } from "@/components/dashboard/RecentBookings";
-import { BookingStats } from "@/components/dashboard/BookingStats";
-import { useDashboardStats } from "@/lib/hooks/use-dashboard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar, Users, MapPin, DollarSign } from "lucide-react";
 
-export default function DashboardPage() {
-  const { data, isLoading, error } = useDashboardStats();
-
+export default function DashboardLoading() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -38,19 +29,8 @@ export default function DashboardPage() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {data?.bookings?.total || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {(data?.bookings?.growth || 0) > 0 ? "+" : ""}
-                  {Math.round(data?.bookings?.growth || 0)}% from last month
-                </p>
-              </>
-            )}
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32 mt-1" />
           </CardContent>
         </Card>
         <Card>
@@ -59,18 +39,8 @@ export default function DashboardPage() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {data?.bookings?.confirmed || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {data?.bookings?.pending || 0} trips pending confirmation
-                </p>
-              </>
-            )}
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32 mt-1" />
           </CardContent>
         </Card>
         <Card>
@@ -81,19 +51,8 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  {data?.travelers?.total || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {(data?.travelers?.growth || 0) > 0 ? "+" : ""}
-                  {Math.round(data?.travelers?.growth || 0)}% from last month
-                </p>
-              </>
-            )}
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32 mt-1" />
           </CardContent>
         </Card>
         <Card>
@@ -102,19 +61,8 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-20" />
-            ) : (
-              <>
-                <div className="text-2xl font-bold">
-                  ${(data?.revenue?.total || 0).toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {(data?.revenue?.growth || 0) > 0 ? "+" : ""}
-                  {Math.round(data?.revenue?.growth || 0)}% from last month
-                </p>
-              </>
-            )}
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32 mt-1" />
           </CardContent>
         </Card>
       </div>
@@ -128,7 +76,9 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <BookingStats />
+            <div className="h-[350px] flex items-center justify-center">
+              <Skeleton className="h-[300px] w-full" />
+            </div>
           </CardContent>
         </Card>
         <Card className="col-span-3">
@@ -137,7 +87,20 @@ export default function DashboardPage() {
             <CardDescription>Your most recent travel bookings</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentBookings />
+            <div className="space-y-4">
+              {Array(5)
+                .fill(0)
+                .map((_, i) => (
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <Skeleton className="ml-auto h-6 w-20" />
+                  </div>
+                ))}
+            </div>
           </CardContent>
         </Card>
       </div>
