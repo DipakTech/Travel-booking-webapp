@@ -2,6 +2,7 @@ import { notificationSchema } from "@/lib/schema";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { formatDistanceToNow } from "date-fns";
 
 /**
  * Type for notification filters
@@ -45,7 +46,6 @@ export const notificationService = {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { relatedEntityName: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -56,7 +56,7 @@ export const notificationService = {
     const notifications = await prisma.notification.findMany({
       where,
       orderBy: {
-        timestamp: "desc",
+        createdAt: "desc",
       },
       skip: offset,
       take: limit,
@@ -66,9 +66,7 @@ export const notificationService = {
         description: true,
         type: true,
         read: true,
-        timestamp: true,
-        time: true,
-        date: true,
+        createdAt: true,
         actionUrl: true,
         actionLabel: true,
         relatedEntityType: true,
@@ -77,7 +75,28 @@ export const notificationService = {
       },
     });
 
-    return { notifications, total };
+    // Transform notifications to include relative time
+    const transformedNotifications = notifications.map((notification) => {
+      // Create relatedEntity object from individual fields
+      let relatedEntity = null;
+      if (notification.relatedEntityType) {
+        relatedEntity = {
+          type: notification.relatedEntityType,
+          id: notification.relatedEntityId,
+          name: notification.relatedEntityName,
+        };
+      }
+
+      return {
+        ...notification,
+        relatedEntity,
+        timeAgo: formatDistanceToNow(new Date(notification.createdAt), {
+          addSuffix: true,
+        }),
+      };
+    });
+
+    return { notifications: transformedNotifications, total };
   },
 
   /**
@@ -86,9 +105,40 @@ export const notificationService = {
   async getNotificationById(id: string) {
     const notification = await prisma.notification.findUnique({
       where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        read: true,
+        createdAt: true,
+        actionUrl: true,
+        actionLabel: true,
+        relatedEntityType: true,
+        relatedEntityId: true,
+        relatedEntityName: true,
+      },
     });
 
-    return notification;
+    if (!notification) return null;
+
+    // Create relatedEntity object
+    let relatedEntity = null;
+    if (notification.relatedEntityType) {
+      relatedEntity = {
+        type: notification.relatedEntityType,
+        id: notification.relatedEntityId,
+        name: notification.relatedEntityName,
+      };
+    }
+
+    return {
+      ...notification,
+      relatedEntity,
+      timeAgo: formatDistanceToNow(new Date(notification.createdAt), {
+        addSuffix: true,
+      }),
+    };
   },
 
   /**
@@ -97,22 +147,51 @@ export const notificationService = {
   async createNotification(
     data: z.infer<typeof notificationSchema> & { recipientId: string },
   ) {
-    // Get current date and time for formatting
-    const now = new Date();
+    // Extract relatedEntity fields
+    const { relatedEntity, ...rest } = data;
 
-    // Format time and date for display
-    const time = "Just now";
-    const date = "Today";
+    // Prepare data for creation
+    const notificationData = {
+      ...rest,
+      // Map relatedEntity to individual fields
+      ...(relatedEntity
+        ? {
+            relatedEntityType: relatedEntity.type,
+            relatedEntityId: relatedEntity.id,
+            relatedEntityName: relatedEntity.name,
+          }
+        : {}),
+      createdAt: new Date().toISOString(),
+    };
 
     const notification = await prisma.notification.create({
-      data: {
-        ...data,
-        time,
-        date,
+      data: notificationData,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        read: true,
+        createdAt: true,
+        actionUrl: true,
+        actionLabel: true,
+        relatedEntityType: true,
+        relatedEntityId: true,
+        relatedEntityName: true,
       },
     });
 
-    return notification;
+    // Transform the response
+    return {
+      ...notification,
+      relatedEntity: notification.relatedEntityType
+        ? {
+            type: notification.relatedEntityType,
+            id: notification.relatedEntityId,
+            name: notification.relatedEntityName,
+          }
+        : null,
+    };
   },
 
   /**
@@ -122,9 +201,32 @@ export const notificationService = {
     const notification = await prisma.notification.update({
       where: { id },
       data: { read: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        read: true,
+        createdAt: true,
+        actionUrl: true,
+        actionLabel: true,
+        relatedEntityType: true,
+        relatedEntityId: true,
+        relatedEntityName: true,
+      },
     });
 
-    return notification;
+    // Transform the response
+    return {
+      ...notification,
+      relatedEntity: notification.relatedEntityType
+        ? {
+            type: notification.relatedEntityType,
+            id: notification.relatedEntityId,
+            name: notification.relatedEntityName,
+          }
+        : null,
+    };
   },
 
   /**
@@ -144,10 +246,10 @@ export const notificationService = {
   /**
    * Mark all notifications as read for a user
    */
-  async markAllAsRead(userId: string) {
+  async markAllAsRead(recipientId: string) {
     await prisma.notification.updateMany({
       where: {
-        recipientId: userId,
+        recipientId,
         read: false,
       },
       data: { read: true },
@@ -183,10 +285,10 @@ export const notificationService = {
   /**
    * Get unread notification count for a user
    */
-  async getUnreadCount(userId: string) {
+  async getUnreadCount(recipientId: string) {
     const count = await prisma.notification.count({
       where: {
-        recipientId: userId,
+        recipientId,
         read: false,
       },
     });

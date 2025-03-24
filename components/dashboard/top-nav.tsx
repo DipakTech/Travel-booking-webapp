@@ -18,6 +18,13 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
+import {
+  useNotifications,
+  useMarkNotificationAsRead,
+  useDeleteNotification,
+  useMarkAllNotificationsAsRead,
+} from "@/lib/hooks/use-notifications";
 
 interface BreadcrumbItem {
   label: string;
@@ -39,35 +46,17 @@ export default function TopNav() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "New booking confirmed",
-      description: "Everest Base Camp trek has been confirmed",
-      time: "2 minutes ago",
-      read: false,
-      type: "success",
-    },
-    {
-      id: "2",
-      title: "Guide schedule updated",
-      description: "Tenzing Sherpa has a new tour assigned",
-      time: "3 hours ago",
-      read: false,
-      type: "info",
-    },
-    {
-      id: "3",
-      title: "Tour cancelation request",
-      description: "Customer requested to cancel Annapurna trek",
-      time: "1 day ago",
-      read: true,
-      type: "warning",
-    },
-  ]);
+
+  // Fetch notifications using the hook
+  const { data: notificationsData, isLoading: isLoadingNotifications } =
+    useNotifications();
+  const { mutate: markAsRead } = useMarkNotificationAsRead();
+  const { mutate: deleteNotification } = useDeleteNotification();
+  const { mutate: markAllAsRead } = useMarkAllNotificationsAsRead();
 
   // Get unread notification count
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount =
+    notificationsData?.notifications?.filter((n) => !n.read).length || 0;
 
   useEffect(() => {
     setMounted(true);
@@ -88,31 +77,8 @@ export default function TopNav() {
       .toUpperCase();
   };
 
-  // Mark a notification as read
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification,
-      ),
-    );
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true })),
-    );
-  };
-
-  // Remove a notification
-  const removeNotification = (id: string) => {
-    setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id),
-    );
-  };
-
   // Get notification icon based on type
-  const getNotificationIcon = (type: Notification["type"]) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case "success":
         return <div className="w-2 h-2 rounded-full bg-green-500"></div>;
@@ -178,7 +144,7 @@ export default function TopNav() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={markAllAsRead}
+                  onClick={() => markAllAsRead()}
                   className="text-xs h-7 px-2 hover:bg-transparent hover:text-primary"
                 >
                   Mark all as read
@@ -186,56 +152,70 @@ export default function TopNav() {
               )}
             </div>
             <div className="max-h-[300px] overflow-y-auto">
-              {notifications.length > 0 ? (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`px-4 py-3 ${
-                      !notification.read ? "bg-muted/30" : ""
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="mt-1.5">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium text-sm">
-                            {notification.title}
-                          </p>
-                          <div className="flex items-center space-x-1 flex-shrink-0">
-                            {!notification.read && (
+              {isLoadingNotifications ? (
+                <div className="px-4 py-6 text-center">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <p className="text-sm text-muted-foreground">
+                    Loading notifications...
+                  </p>
+                </div>
+              ) : notificationsData?.notifications &&
+                notificationsData.notifications.length > 0 ? (
+                notificationsData.notifications
+                  .slice(0, 5)
+                  .map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`px-4 py-3 ${
+                        !notification.read ? "bg-muted/30" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="mt-1.5">
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-medium text-sm">
+                              {notification.title}
+                            </p>
+                            <div className="flex items-center space-x-1 flex-shrink-0">
+                              {!notification.read && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5"
+                                  onClick={() => markAsRead(notification.id)}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5"
-                                onClick={() => markAsRead(notification.id)}
+                                onClick={() =>
+                                  deleteNotification(notification.id)
+                                }
                               >
-                                <Check className="h-3 w-3" />
+                                <X className="h-3 w-3" />
                               </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5"
-                              onClick={() =>
-                                removeNotification(notification.id)
-                              }
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
+                            </div>
                           </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {notification.description}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {notification.timeAgo ||
+                              formatDistanceToNow(
+                                new Date(notification.createdAt),
+                                { addSuffix: true },
+                              )}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {notification.description}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {notification.time}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))
               ) : (
                 <div className="px-4 py-6 text-center">
                   <p className="text-sm text-muted-foreground">

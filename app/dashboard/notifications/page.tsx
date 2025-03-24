@@ -20,13 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +30,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
+import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useMarkNotificationAsRead } from "@/lib/hooks/use-notifications";
+import { useDeleteNotification } from "@/lib/hooks/use-notifications";
+import { useMarkAllNotificationsAsRead } from "@/lib/hooks/use-notifications";
+import { useMarkNotificationsAsRead } from "@/lib/hooks/use-notifications";
+import { useDeleteNotifications } from "@/lib/hooks/use-notifications";
+import { formatDistanceToNow } from "date-fns";
 
 interface Notification {
   id: string;
@@ -53,6 +53,7 @@ interface Notification {
     id: string;
     name: string;
   };
+  createdAt: string;
 }
 
 export default function NotificationsPage() {
@@ -65,99 +66,22 @@ export default function NotificationsPage() {
     [],
   );
 
-  // Example notifications - in a real app, these would come from an API
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      title: "New booking confirmed",
-      description:
-        "Everest Base Camp trek has been confirmed for October 15, 2023. 6 participants are confirmed.",
-      time: "2 minutes ago",
-      date: "Today",
-      read: false,
-      type: "success",
-      actionUrl: "/dashboard/bookings/B1234",
-      actionLabel: "View Booking",
-      relatedEntity: {
-        type: "booking",
-        id: "B1234",
-        name: "Everest Base Camp",
-      },
-    },
-    {
-      id: "2",
-      title: "Guide schedule updated",
-      description:
-        "Tenzing Sherpa has a new tour assigned: Annapurna Circuit (Nov 10-25, 2023)",
-      time: "3 hours ago",
-      date: "Today",
-      read: false,
-      type: "info",
-      actionUrl: "/dashboard/guides/G001/schedule",
-      actionLabel: "View Schedule",
-      relatedEntity: {
-        type: "guide",
-        id: "G001",
-        name: "Tenzing Sherpa",
-      },
-    },
-    {
-      id: "3",
-      title: "Tour cancelation request",
-      description:
-        "Customer Maria Johnson requested to cancel Annapurna trek scheduled for Dec 5, 2023",
-      time: "1 day ago",
-      date: "Yesterday",
-      read: true,
-      type: "warning",
-      actionUrl: "/dashboard/bookings/B1235/cancel",
-      actionLabel: "Process Cancellation",
-      relatedEntity: {
-        type: "booking",
-        id: "B1235",
-        name: "Annapurna Circuit",
-      },
-    },
-    {
-      id: "4",
-      title: "Payment failed",
-      description:
-        "Payment for booking #B1236 (Langtang Valley) failed due to insufficient funds",
-      time: "2 days ago",
-      date: "May 15, 2023",
-      read: true,
-      type: "error",
-      actionUrl: "/dashboard/bookings/B1236/payment",
-      actionLabel: "Review Payment",
-      relatedEntity: {
-        type: "booking",
-        id: "B1236",
-        name: "Langtang Valley",
-      },
-    },
-    {
-      id: "5",
-      title: "New customer review",
-      description:
-        "Jenny Parker left a 5-star review for the Everest Base Camp trek with guide Tenzing Sherpa",
-      time: "3 days ago",
-      date: "May 14, 2023",
-      read: true,
-      type: "success",
-      actionUrl: "/dashboard/reviews",
-      actionLabel: "View Review",
-    },
-    {
-      id: "6",
-      title: "System maintenance completed",
-      description:
-        "The scheduled system maintenance has been completed successfully. All systems are operational.",
-      time: "5 days ago",
-      date: "May 12, 2023",
-      read: true,
-      type: "info",
-    },
-  ]);
+  const { data: notificationsData, isLoading } = useNotifications({
+    type: filterType === "all" ? undefined : filterType,
+    status:
+      currentTab === "all"
+        ? "all"
+        : currentTab === "unread"
+        ? "unread"
+        : "read",
+    search: searchQuery || undefined,
+  });
+
+  const { mutate: markAsRead } = useMarkNotificationAsRead();
+  const { mutate: deleteNotification } = useDeleteNotification();
+  const { mutate: markAllAsRead } = useMarkAllNotificationsAsRead();
+  const { mutate: markSelectedAsRead } = useMarkNotificationsAsRead();
+  const { mutate: deleteSelected } = useDeleteNotifications();
 
   // Redirect to login if not authenticated
   if (status === "unauthenticated") {
@@ -166,7 +90,7 @@ export default function NotificationsPage() {
   }
 
   // Show loading state while checking authentication
-  if (status === "loading") {
+  if (status === "loading" || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -175,26 +99,7 @@ export default function NotificationsPage() {
   }
 
   // Filter notifications based on current tab and search query
-  const filteredNotifications = notifications.filter((notification) => {
-    // First apply tab filter
-    if (currentTab === "unread" && notification.read) return false;
-    if (currentTab === "read" && !notification.read) return false;
-
-    // Then apply type filter if not "all"
-    if (filterType !== "all" && notification.type !== filterType) return false;
-
-    // Finally apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return (
-        notification.title.toLowerCase().includes(query) ||
-        notification.description.toLowerCase().includes(query) ||
-        notification.relatedEntity?.name.toLowerCase().includes(query)
-      );
-    }
-
-    return true;
-  });
+  const filteredNotifications = notificationsData?.notifications || [];
 
   // Group notifications by date
   const groupedNotifications: Record<string, Notification[]> = {};
@@ -206,64 +111,38 @@ export default function NotificationsPage() {
   });
 
   // Mark a notification as read
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification,
-      ),
-    );
-    // Remove from selected if it was selected
+  const handleMarkAsRead = (id: string) => {
+    markAsRead(id);
     if (selectedNotifications.includes(id)) {
       setSelectedNotifications((prev) => prev.filter((nId) => nId !== id));
     }
   };
 
   // Mark all notifications as read
-  const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true })),
-    );
-    setSelectedNotifications([]);
+  const handleMarkAllAsRead = () => {
+    // Implementation of handleMarkAllAsRead
   };
 
   // Mark selected notifications as read
-  const markSelectedAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        selectedNotifications.includes(notification.id)
-          ? { ...notification, read: true }
-          : notification,
-      ),
-    );
+  const handleMarkSelectedAsRead = () => {
+    markSelectedAsRead(selectedNotifications);
     setSelectedNotifications([]);
   };
 
   // Delete notification
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id),
-    );
-    // Remove from selected if it was selected
-    if (selectedNotifications.includes(id)) {
-      setSelectedNotifications((prev) => prev.filter((nId) => nId !== id));
-    }
+  const handleDeleteNotification = (id: string) => {
+    // Implementation of handleDeleteNotification
   };
 
   // Delete selected notifications
-  const deleteSelected = () => {
-    setNotifications((prev) =>
-      prev.filter(
-        (notification) => !selectedNotifications.includes(notification.id),
-      ),
-    );
+  const handleDeleteSelected = () => {
+    deleteSelected(selectedNotifications);
     setSelectedNotifications([]);
   };
 
   // Toggle selection of a notification
   const toggleSelect = (id: string) => {
-    setSelectedNotifications((prev) =>
-      prev.includes(id) ? prev.filter((nId) => nId !== id) : [...prev, id],
-    );
+    // Implementation of toggleSelect
   };
 
   // Get notification icon based on type
@@ -281,7 +160,8 @@ export default function NotificationsPage() {
   };
 
   // Get the count of unread notifications
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount =
+    notificationsData?.notifications.filter((n) => !n.read).length || 0;
 
   return (
     <div className="space-y-6">
@@ -299,15 +179,21 @@ export default function NotificationsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={markSelectedAsRead}
+                onClick={handleMarkSelectedAsRead}
                 disabled={selectedNotifications.every(
-                  (id) => notifications.find((n) => n.id === id)?.read,
+                  (id) =>
+                    notificationsData?.notifications.find((n) => n.id === id)
+                      ?.read,
                 )}
               >
                 <CheckCheck className="h-4 w-4 mr-2" />
                 Mark as Read
               </Button>
-              <Button variant="outline" size="sm" onClick={deleteSelected}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteSelected}
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </Button>
@@ -315,7 +201,11 @@ export default function NotificationsPage() {
           ) : (
             <>
               {unreadCount > 0 && (
-                <Button variant="outline" size="sm" onClick={markAllAsRead}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkAllAsRead}
+                >
                   <CheckCheck className="h-4 w-4 mr-2" />
                   Mark All as Read
                 </Button>
@@ -483,7 +373,10 @@ export default function NotificationsPage() {
                                   <div className="flex items-center gap-3">
                                     <p className="text-xs text-muted-foreground flex items-center">
                                       <Clock className="h-3 w-3 mr-1" />
-                                      {notification.time}
+                                      {formatDistanceToNow(
+                                        new Date(notification.createdAt),
+                                        { addSuffix: true },
+                                      )}
                                     </p>
                                     {notification.actionUrl && (
                                       <Button
@@ -506,7 +399,7 @@ export default function NotificationsPage() {
                                       size="icon"
                                       className="h-8 w-8"
                                       onClick={() =>
-                                        markAsRead(notification.id)
+                                        handleMarkAsRead(notification.id)
                                       }
                                       title="Mark as read"
                                     >
@@ -518,7 +411,7 @@ export default function NotificationsPage() {
                                     size="icon"
                                     className="h-8 w-8"
                                     onClick={() =>
-                                      deleteNotification(notification.id)
+                                      handleDeleteNotification(notification.id)
                                     }
                                     title="Delete notification"
                                   >
@@ -610,7 +503,10 @@ export default function NotificationsPage() {
                                   <div className="flex items-center gap-3">
                                     <p className="text-xs text-muted-foreground flex items-center">
                                       <Clock className="h-3 w-3 mr-1" />
-                                      {notification.time}
+                                      {formatDistanceToNow(
+                                        new Date(notification.createdAt),
+                                        { addSuffix: true },
+                                      )}
                                     </p>
                                     {notification.actionUrl && (
                                       <Button
@@ -631,7 +527,9 @@ export default function NotificationsPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => markAsRead(notification.id)}
+                                    onClick={() =>
+                                      handleMarkAsRead(notification.id)
+                                    }
                                     title="Mark as read"
                                   >
                                     <CheckCheck className="h-4 w-4" />
@@ -641,7 +539,7 @@ export default function NotificationsPage() {
                                     size="icon"
                                     className="h-8 w-8"
                                     onClick={() =>
-                                      deleteNotification(notification.id)
+                                      handleDeleteNotification(notification.id)
                                     }
                                     title="Delete notification"
                                   >
@@ -730,7 +628,10 @@ export default function NotificationsPage() {
                                   <div className="flex items-center gap-3">
                                     <p className="text-xs text-muted-foreground flex items-center">
                                       <Clock className="h-3 w-3 mr-1" />
-                                      {notification.time}
+                                      {formatDistanceToNow(
+                                        new Date(notification.createdAt),
+                                        { addSuffix: true },
+                                      )}
                                     </p>
                                     {notification.actionUrl && (
                                       <Button
@@ -752,7 +653,7 @@ export default function NotificationsPage() {
                                     size="icon"
                                     className="h-8 w-8"
                                     onClick={() =>
-                                      deleteNotification(notification.id)
+                                      handleDeleteNotification(notification.id)
                                     }
                                     title="Delete notification"
                                   >

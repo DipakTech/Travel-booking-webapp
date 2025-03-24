@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { notificationService } from "@/lib/services/notifications";
+import notificationService from "@/lib/services/notifications";
 import { notificationSchema } from "@/lib/schema";
 
 export async function GET(request: NextRequest) {
