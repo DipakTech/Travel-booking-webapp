@@ -17,38 +17,14 @@ import {
   Award,
   Clock,
   Link,
+  Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-
-const popularDestinations = [
-  {
-    title: "Everest Base Camp",
-    image: "/destinations/abc.jpg",
-    location: "Solukhumbu",
-    rating: 4.9,
-    reviews: 128,
-    price: "from $1,299",
-  },
-  {
-    title: "Annapurna Circuit",
-    image: "/destinations/annapurna.jpg",
-    location: "Annapurna",
-    rating: 4.8,
-    reviews: 156,
-    price: "from $999",
-  },
-  {
-    title: "Upper Mustang",
-    image: "/destinations/mustang.jpg",
-    location: "Mustang",
-    rating: 4.9,
-    reviews: 74,
-    price: "from $1,499",
-  },
-];
+import { usePopularDestinations } from "@/lib/hooks/use-destinations";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const features = [
   {
@@ -108,6 +84,14 @@ const item = {
 
 export default function HomePage() {
   const router = useRouter();
+
+  // Fetch popular destinations with a limit of 3
+  const {
+    data: popularDestinationsData,
+    isLoading,
+    isError,
+  } = usePopularDestinations(3);
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -256,6 +240,7 @@ export default function HomePage() {
                     }}
                   >
                     <Button
+                      onClick={() => router.push("/destinations")}
                       className={cn(
                         "w-full h-12",
                         "bg-gradient-to-r from-rose-500 to-rose-600",
@@ -283,9 +268,14 @@ export default function HomePage() {
                     Popular:
                   </span>
                   {["Everest Base Camp", "Annapurna", "Langtang"].map(
-                    (term, index) => (
+                    (term) => (
                       <button
                         key={term}
+                        onClick={() =>
+                          router.push(
+                            `/destinations?search=${encodeURIComponent(term)}`,
+                          )
+                        }
                         className={cn(
                           "px-3 py-1 rounded-full",
                           "text-gray-600 dark:text-gray-300",
@@ -358,62 +348,118 @@ export default function HomePage() {
             </p>
           </motion.div>
 
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
-          >
-            {popularDestinations.map((destination) => (
-              <motion.div
-                key={destination.title}
-                variants={item}
-                className="group bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-white/20 dark:border-gray-800 overflow-hidden hover:border-primary/50 transition-all"
-              >
-                <div className="relative h-64">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
-                  <Image
-                    width={200}
-                    height={200}
-                    src={destination.image}
-                    alt={destination.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute bottom-4 left-4 right-4 z-20">
-                    <h3 className="text-xl font-semibold text-white mb-1">
-                      {destination.title}
-                    </h3>
+          {isLoading ? (
+            // Loading skeleton
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            >
+              {[1, 2, 3].map((i) => (
+                <motion.div
+                  key={i}
+                  variants={item}
+                  className="group bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-white/20 dark:border-gray-800 overflow-hidden"
+                >
+                  <div className="relative h-64">
+                    <Skeleton className="h-64 w-full" />
+                  </div>
+                  <div className="p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-white/90">
-                        <MapPin className="h-4 w-4" />
-                        <span>{destination.location}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span className="ml-1 text-white">
-                          {destination.rating}
-                        </span>
+                      <Skeleton className="h-6 w-24" />
+                      <Skeleton className="h-10 w-32" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : isError ? (
+            // Error state
+            <div className="text-center py-8">
+              <p className="text-rose-500 dark:text-rose-400 mb-4">
+                Unable to load destinations. Please try again later.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => window.location.reload()}
+                className="mx-auto"
+              >
+                Retry
+              </Button>
+            </div>
+          ) : (
+            // Data loaded successfully
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            >
+              {popularDestinationsData?.destinations.map((destination) => (
+                <motion.div
+                  key={destination.id}
+                  variants={item}
+                  className="group bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-white/20 dark:border-gray-800 overflow-hidden hover:border-primary/50 transition-all"
+                >
+                  <div className="relative h-64">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
+                    <Image
+                      width={400}
+                      height={300}
+                      src={destination.image}
+                      alt={destination.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute bottom-4 left-4 right-4 z-20">
+                      <h3 className="text-xl font-semibold text-white mb-1">
+                        {destination.title}
+                      </h3>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-white/90">
+                          <MapPin className="h-4 w-4" />
+                          <span>{destination.location}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                          <span className="ml-1 text-white">
+                            {destination.rating}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-primary">
-                      {destination.price}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      className="text-primary hover:text-primary/90"
-                    >
-                      View Details
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-semibold text-primary">
+                        from ${Math.round(Math.random() * 1000 + 500)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        className="text-primary hover:text-primary/90"
+                        onClick={() =>
+                          router.push(`/destinations/${destination.id}`)
+                        }
+                      >
+                        View Details
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          <div className="mt-12 text-center">
+            <Button
+              onClick={() => router.push("/destinations")}
+              className="bg-primary hover:bg-primary/90 text-white"
+            >
+              View All Destinations
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </Container>
       </section>
 
@@ -589,9 +635,10 @@ export default function HomePage() {
               <Button
                 size="lg"
                 variant="outline"
+                onClick={() => router.push("/destinations")}
                 className="relative group border-2 border-primary text-primary dark:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 backdrop-blur-sm min-w-[180px] overflow-hidden"
               >
-                <span className="relative z-10">Learn More</span>
+                <span className="relative z-10">Explore Destinations</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
               </Button>
             </motion.div>

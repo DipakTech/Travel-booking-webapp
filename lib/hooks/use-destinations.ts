@@ -4,64 +4,264 @@ import api from "@/lib/api";
 import { z } from "zod";
 import { useToast } from "@/components/ui/use-toast";
 
-type DestinationFilters = {
-  featured?: boolean;
+// Types
+export interface DestinationFilters {
   search?: string;
-  minPrice?: number;
-  maxPrice?: number;
   difficulty?: string;
   country?: string;
+  featured?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
   activities?: string[];
   seasons?: string[];
   rating?: number;
   limit?: number;
   offset?: number;
-};
+}
 
-/**
- * Hook to fetch destinations with optional filters
- */
+export interface DestinationResponse {
+  id: string;
+  title: string;
+  image: string;
+  location: string;
+  duration: string;
+  difficulty: string;
+  bestSeason: string;
+  maxAltitude: string;
+  rating: number;
+  reviews: number;
+  description: string;
+}
+
+interface ApiResponse {
+  destinations: Array<{
+    id: string;
+    name: string;
+    images: string[];
+    region: string;
+    country: string;
+    minDays: number;
+    maxDays: number;
+    difficulty: string;
+    seasons: string[];
+    maxAltitude?: string;
+    rating: number;
+    reviewCount: number;
+    description: string;
+    priceAmount: number;
+    priceCurrency: string;
+    pricePeriod: string;
+    activities: string[];
+    amenities: string[];
+    availableGuides?: Array<{ guide: any }>;
+    reviews?: any[];
+  }>;
+  total: number;
+}
+
+// Function to fetch destinations from API
+async function fetchDestinations(filters: DestinationFilters = {}): Promise<{
+  destinations: DestinationResponse[];
+  total: number;
+}> {
+  // Build query string from filters
+  const queryParams = new URLSearchParams();
+
+  if (filters.search) queryParams.append("search", filters.search);
+  if (filters.difficulty) queryParams.append("difficulty", filters.difficulty);
+  if (filters.country) queryParams.append("country", filters.country);
+  if (filters.featured !== undefined)
+    queryParams.append("featured", filters.featured.toString());
+  if (filters.minPrice !== undefined)
+    queryParams.append("minPrice", filters.minPrice.toString());
+  if (filters.maxPrice !== undefined)
+    queryParams.append("maxPrice", filters.maxPrice.toString());
+  if (filters.activities?.length)
+    queryParams.append("activities", filters.activities.join(","));
+  if (filters.seasons?.length)
+    queryParams.append("seasons", filters.seasons.join(","));
+  if (filters.rating !== undefined)
+    queryParams.append("rating", filters.rating.toString());
+  if (filters.limit !== undefined)
+    queryParams.append("limit", filters.limit.toString());
+  if (filters.offset !== undefined)
+    queryParams.append("offset", filters.offset.toString());
+
+  const response = await fetch(`/api/destinations?${queryParams.toString()}`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch destinations");
+  }
+
+  const data: ApiResponse = await response.json();
+
+  // Transform data to match frontend expectations
+  const formattedDestinations: DestinationResponse[] = data.destinations.map(
+    (dest) => ({
+      id: dest.id,
+      title: dest.name,
+      image: dest.images[0] || "/destinations/abc.jpg",
+      location: `${dest.region}, ${dest.country}`,
+      duration: `${dest.minDays}${
+        dest.maxDays > dest.minDays ? `-${dest.maxDays}` : ""
+      } days`,
+      difficulty:
+        dest.difficulty.charAt(0).toUpperCase() + dest.difficulty.slice(1),
+      bestSeason: dest.seasons
+        .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+        .join(", "),
+      maxAltitude: dest.maxAltitude || "N/A",
+      rating: dest.rating,
+      reviews: dest.reviewCount,
+      description: dest.description,
+    }),
+  );
+
+  return {
+    destinations: formattedDestinations,
+    total: data.total,
+  };
+}
+
+// Hook to get destinations with filters
 export function useDestinations(filters: DestinationFilters = {}) {
   return useQuery({
     queryKey: ["destinations", filters],
-    queryFn: () => {
-      // Convert filters to URLSearchParams
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined) {
-          if (Array.isArray(value)) {
-            params.append(key, value.join(","));
-          } else {
-            params.append(key, String(value));
-          }
-        }
-      });
+    queryFn: () => fetchDestinations(filters),
+  });
+}
 
-      return api.get<{ destinations: any[]; total: number }>(
-        `/api/destinations?${params.toString()}`,
-      );
+// Hook to get popular destinations
+export function usePopularDestinations(limit: number = 6) {
+  return useQuery({
+    queryKey: ["destinations", "popular", limit],
+    queryFn: async () => {
+      const response = await fetch(`/api/destinations/popular?limit=${limit}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch popular destinations");
+      }
+
+      const data: ApiResponse = await response.json();
+
+      // Transform data to match frontend expectations
+      const formattedDestinations: DestinationResponse[] =
+        data.destinations.map((dest) => ({
+          id: dest.id,
+          title: dest.name,
+          image: dest.images[0] || "/destinations/abc.jpg",
+          location: `${dest.region}, ${dest.country}`,
+          duration: `${dest.minDays}${
+            dest.maxDays > dest.minDays ? `-${dest.maxDays}` : ""
+          } days`,
+          difficulty:
+            dest.difficulty.charAt(0).toUpperCase() + dest.difficulty.slice(1),
+          bestSeason: dest.seasons
+            .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+            .join(", "),
+          maxAltitude: dest.maxAltitude || "N/A",
+          rating: dest.rating,
+          reviews: dest.reviewCount,
+          description: dest.description,
+        }));
+
+      return {
+        destinations: formattedDestinations,
+        total: data.total,
+      };
     },
   });
 }
 
-/**
- * Hook to fetch popular destinations
- */
-export function usePopularDestinations(limit = 5) {
+export interface DestinationDetail extends DestinationResponse {
+  images: string[];
+  activities: string[];
+  amenities: string[];
+  price: {
+    amount: number;
+    currency: string;
+    period: string;
+  };
+  guides: any[];
+  reviewList: any[];
+}
+
+// Hook to get destination by ID
+export function useDestination(id: string) {
   return useQuery({
-    queryKey: ["popular-destinations", limit],
-    queryFn: () => api.get<any[]>(`/api/destinations/popular?limit=${limit}`),
+    queryKey: ["destination", id],
+    queryFn: async () => {
+      const response = await fetch(`/api/destinations/${id}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch destination details");
+      }
+
+      const dest = await response.json();
+
+      // Transform data to match frontend expectations
+      return {
+        id: dest.id,
+        title: dest.name,
+        image: dest.images[0] || "/destinations/abc.jpg",
+        images: dest.images,
+        location: `${dest.region}, ${dest.country}`,
+        duration: `${dest.minDays}${
+          dest.maxDays > dest.minDays ? `-${dest.maxDays}` : ""
+        } days`,
+        difficulty:
+          dest.difficulty.charAt(0).toUpperCase() + dest.difficulty.slice(1),
+        bestSeason: dest.seasons
+          .map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+          .join(", "),
+        maxAltitude: dest.maxAltitude || "N/A",
+        rating: dest.rating,
+        reviews: dest.reviewCount,
+        description: dest.description,
+        activities: dest.activities,
+        amenities: dest.amenities,
+        price: {
+          amount: dest.priceAmount,
+          currency: dest.priceCurrency,
+          period: dest.pricePeriod,
+        },
+        guides: dest.availableGuides?.map((g: { guide: any }) => g.guide) || [],
+        reviewList: dest.reviews || [],
+      } as DestinationDetail;
+    },
+    enabled: !!id,
   });
 }
 
-/**
- * Hook to fetch a single destination by ID
- */
-export function useDestination(id: string | undefined) {
+// Hook to get destination countries for filtering
+export function useDestinationCountries() {
   return useQuery({
-    queryKey: ["destination", id],
-    queryFn: () => api.get<any>(`/api/destinations/${id}`),
-    enabled: !!id, // Only run the query if we have an ID
+    queryKey: ["destinations", "countries"],
+    queryFn: async () => {
+      const response = await fetch("/api/destinations/countries");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch destination countries");
+      }
+
+      return response.json();
+    },
+  });
+}
+
+// Hook to get destination statistics
+export function useDestinationStats() {
+  return useQuery({
+    queryKey: ["destinations", "stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/destinations/stats");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch destination statistics");
+      }
+
+      return response.json();
+    },
   });
 }
 
@@ -170,25 +370,5 @@ export function useDeleteDestination() {
         variant: "destructive",
       });
     },
-  });
-}
-
-/**
- * Hook to fetch distinct destination countries
- */
-export function useDestinationCountries() {
-  return useQuery({
-    queryKey: ["destination-countries"],
-    queryFn: () => api.get<string[]>("/api/destinations/countries"),
-  });
-}
-
-/**
- * Hook to fetch destination statistics
- */
-export function useDestinationStats() {
-  return useQuery({
-    queryKey: ["destination-stats"],
-    queryFn: () => api.get<any>("/api/destinations/stats"),
   });
 }

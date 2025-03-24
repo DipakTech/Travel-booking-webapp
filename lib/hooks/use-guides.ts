@@ -10,6 +10,7 @@ type GuideFilters = {
   location?: string;
   specialty?: string;
   language?: string;
+  experienceLevel?: string;
   minRating?: number;
   limit?: number;
   offset?: number;
@@ -165,5 +166,62 @@ export function useGuideStats() {
   return useQuery({
     queryKey: ["guide-stats"],
     queryFn: () => api.get<any>("/api/guides/stats"),
+  });
+}
+
+/**
+ * Hook to fetch guide locations for the map
+ */
+export function useGuideLocations() {
+  return useQuery({
+    queryKey: ["guide-locations"],
+    queryFn: async () => {
+      const { guides } = await api.get<{ guides: Guide[]; total: number }>(
+        "/api/guides",
+      );
+
+      // Transform guides data to location format needed for the map
+      return guides.map((guide) => ({
+        id: guide.id,
+        name: `${guide.name}`,
+        coordinates: [86.925026, 27.805646], // Default coordinates, ideally we'd have actual coordinates
+        type: guide.specialties.slice(0, 2).join(" & "),
+        description: guide.bio.substring(0, 100) + "...",
+      }));
+    },
+  });
+}
+
+/**
+ * Hook to get all available languages from guides
+ */
+export function useGuideLanguages() {
+  return useQuery({
+    queryKey: ["guide-languages"],
+    queryFn: async () => {
+      const response = await api.get<string[]>("/api/guides/languages");
+      return response || ["English", "Nepali", "Hindi", "Sherpa", "Tibetan"];
+    },
+  });
+}
+
+/**
+ * Hook to get all available specialties from guides
+ */
+export function useGuideSpecialties() {
+  return useQuery({
+    queryKey: ["guide-specialties"],
+    queryFn: async () => {
+      const response = await api.get<string[]>("/api/guides/specialties");
+      return (
+        response || [
+          "Trekking",
+          "Climbing",
+          "Cultural",
+          "Photography",
+          "Wildlife",
+        ]
+      );
+    },
   });
 }
