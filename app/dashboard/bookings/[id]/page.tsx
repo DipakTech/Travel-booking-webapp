@@ -288,7 +288,7 @@ export default function BookingDetailsPage() {
                     >
                       <h3 className="font-medium">{activity.name}</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {activity.description}
+                        {/* {activity.description} */}
                       </p>
                     </div>
                   ))}

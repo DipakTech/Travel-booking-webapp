@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getBookingStats } from "@/lib/services/bookings";
 import { getDestinationStats } from "@/lib/services/destinations";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     // Verify authentication

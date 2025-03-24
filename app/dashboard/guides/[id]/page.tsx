@@ -130,7 +130,10 @@ export default function GuideDetailsPage({
               Schedule
             </Link>
           </Button>
-          <DeleteGuideDialog guideName={guide.name || ""} guideId={guide.id} />
+          <DeleteGuideDialog
+            guideName={guide.name || ""}
+            guideId={guide.id || ""}
+          />
         </div>
       </div>
 

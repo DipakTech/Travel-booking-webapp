@@ -31,10 +31,11 @@ import {
 } from "@/components/ui/card";
 import { MapPin, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import Image from "next/image";
 
 // Form schema with validation
 const destinationFormSchema = z.object({
-  name: z.string().min(2, {
+  title: z.string().min(2, {
     message: "Name must be at least 2 characters.",
   }),
   location: z.string().min(2, {
@@ -80,7 +81,7 @@ export function DestinationForm({
   const form = useForm<DestinationFormValues>({
     resolver: zodResolver(destinationFormSchema),
     defaultValues: {
-      name: defaultValues?.name || "",
+      title: defaultValues?.title || "",
       location: defaultValues?.location || "",
       description: defaultValues?.description || "",
       longDescription: defaultValues?.longDescription || "",
@@ -141,7 +142,7 @@ export function DestinationForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="title"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Destination Name</FormLabel>
@@ -435,10 +436,12 @@ export function DestinationForm({
                     >
                       {previewUrls.map((url, index) => (
                         <div key={index} className="relative group">
-                          <img
+                          <Image
                             src={url}
                             alt={`Preview ${index + 1}`}
                             className="h-24 w-full object-cover rounded-md"
+                            width={100}
+                            height={100}
                           />
                           <button
                             type="button"

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import notificationService from "@/lib/services/notifications";
 import { notificationSchema } from "@/lib/schema";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   // Check authentication
   const session = await getServerSession();

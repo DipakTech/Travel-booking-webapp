@@ -8,7 +8,7 @@ import { MapPin, Calendar, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useQuery } from "@tanstack/react-query";
-
+import Image from "next/image";
 // Function to parse HTML entities and tags
 function parseHtml(html: string): string {
   // Create a temporary div element
@@ -113,10 +113,12 @@ export function SearchResults({ query, type = "general" }: SearchResultsProps) {
           <div className="flex gap-4">
             {result.thumbnail && (
               <div className="flex-shrink-0">
-                <img
+                <Image
                   src={result.thumbnail.src}
                   alt={result.title}
                   className="w-24 h-24 object-cover rounded-lg"
+                  width={100}
+                  height={100}
                 />
               </div>
             )}

@@ -9,8 +9,34 @@ import { DestinationForm } from "@/components/dashboard/destinations/Destination
 import {
   useDestination,
   useUpdateDestination,
+  DestinationDetail,
 } from "@/lib/hooks/use-destinations";
 import { useToast } from "@/components/ui/use-toast";
+import { z } from "zod";
+import { destinationSchema } from "@/lib/schema/destination";
+
+// Define the form values type based on the DestinationForm component
+type DestinationFormValues = z.infer<typeof destinationFormSchema>;
+
+// Import the schema from DestinationForm or define it here
+const destinationFormSchema = z.object({
+  title: z.string().min(2),
+  location: z.string().min(2),
+  description: z.string().min(10),
+  longDescription: z.string().min(50),
+  altitude: z.string().optional(),
+  bestSeason: z.string().optional(),
+  difficulty: z.string().optional(),
+  duration: z.string().optional(),
+  averageCost: z.string().optional(),
+  status: z.enum(["popular", "trending", "new"]),
+  highlights: z.string().optional(),
+  activities: z.string().optional(),
+  imageFiles: z.any().optional(),
+});
+
+// Helper type for difficulty levels from the destination schema
+type DifficultyLevel = z.infer<typeof destinationSchema>["difficulty"];
 
 export default function EditDestinationPage() {
   const params = useParams();
@@ -27,45 +53,30 @@ export default function EditDestinationPage() {
   const updateDestination = useUpdateDestination(id);
 
   // Initialize form values when destination data is loaded
-  const [formValues, setFormValues] = useState<any>(null);
+  const [formValues, setFormValues] =
+    useState<Partial<DestinationFormValues> | null>(null);
 
   useEffect(() => {
     if (destination) {
       // Transform API data to match form structure
       setFormValues({
-        name: destination.name || "",
-        location: destination.location
-          ? `${destination.location.region}, ${destination.location.country}`
-          : "",
+        title: destination.title || "",
+        location: destination.location ? `${destination.location}` : "",
         description: destination.description || "",
         longDescription: destination.description || "", // Using description as longDescription
-        altitude: destination.location?.coordinates?.latitude
-          ? `${destination.location.coordinates.latitude} meters`
+        altitude: destination.maxAltitude
+          ? `${destination.maxAltitude} meters`
           : "",
-        bestSeason: destination.seasons?.join(", ") || "",
+        bestSeason: destination.bestSeason || "",
         difficulty: destination.difficulty || "Moderate",
-        duration: destination.duration
-          ? `${destination.duration.minDays}-${destination.duration.maxDays}`
-          : "",
+        // duration: destination.duration
+        //   ? `${destination.duration.minDays}-${destination.duration.maxDays}`
+        //   : "",
         averageCost: destination.price ? `$${destination.price.amount}` : "",
-        status: destination.featured ? "popular" : "new",
+        status: "new", // Default to new if not specified
         highlights: destination.activities?.join("\n") || "",
         activities: destination.activities?.join(", ") || "",
         // We don't set imageFiles here as they're handled separately
-      });
-
-      console.log("Form values set:", {
-        name: destination.name,
-        location: `${destination.location?.region}, ${destination.location?.country}`,
-        difficulty: destination.difficulty,
-        duration: destination.duration
-          ? `${destination.duration.minDays}-${destination.duration.maxDays}`
-          : "",
-        altitude: destination.location?.coordinates?.latitude
-          ? `${destination.location.coordinates.latitude} meters`
-          : "",
-        averageCost: destination.price ? `$${destination.price.amount}` : "",
-        images: destination.images,
       });
     }
   }, [destination]);
@@ -74,7 +85,9 @@ export default function EditDestinationPage() {
     notFound();
   }
 
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: DestinationFormValues) => {
+    if (!destination) return;
+
     try {
       // Show loading toast
       toast({
@@ -91,19 +104,34 @@ export default function EditDestinationPage() {
         images = [...newImageUrls]; // Replace existing images with new ones
       }
 
+      // Map form difficulty to valid schema difficulty
+      const difficultyMap: Record<string, DifficultyLevel> = {
+        easy: "easy",
+        moderate: "moderate",
+        challenging: "challenging",
+        difficult: "difficult",
+        extreme: "extreme",
+      };
+
+      // Default to moderate if not a valid difficulty
+      const formDifficulty = data.difficulty?.toLowerCase() || "moderate";
+      const validDifficulty: DifficultyLevel =
+        difficultyMap[formDifficulty as keyof typeof difficultyMap] ||
+        "moderate";
+
       // Transform form data to match API schema
       const updatedDestination = {
-        name: data.name,
+        title: data.title,
         location: {
           country:
             data.location.split(",")[1]?.trim() ||
-            destination?.location?.country ||
+            destination?.location?.split(",")[1]?.trim() ||
             "Unknown",
           region:
             data.location.split(",")[0]?.trim() ||
-            destination?.location?.region ||
+            destination?.location?.split(",")[0]?.trim() ||
             data.location,
-          coordinates: destination?.location?.coordinates || {
+          coordinates: {
             latitude: 0,
             longitude: 0,
           },
@@ -113,30 +141,20 @@ export default function EditDestinationPage() {
         featured: data.status === "popular",
         price: {
           amount:
-            parseInt(data.averageCost?.replace(/[^0-9]/g, "") || "0") ||
-            destination?.price?.amount ||
-            0,
-          currency: destination?.price?.currency || "USD",
-          period: destination?.price?.period || "per person",
+            parseInt(data.averageCost?.replace(/[^0-9]/g, "") || "0") || 0,
+          currency: "USD",
+          period: "per person" as const,
         },
         duration: {
-          minDays:
-            parseInt(data.duration?.split("-")[0] || "1") ||
-            destination?.duration?.minDays ||
-            1,
+          minDays: parseInt(data.duration?.split("-")[0] || "1") || 1,
           maxDays:
             parseInt(
               data.duration?.split("-")[1] ||
                 data.duration?.split("-")[0] ||
                 "1",
-            ) ||
-            destination?.duration?.maxDays ||
-            1,
+            ) || 1,
         },
-        difficulty:
-          data.difficulty?.toLowerCase() ||
-          destination?.difficulty ||
-          "moderate",
+        difficulty: validDifficulty,
         activities: parseActivities(data.activities),
         seasons: parseSeasons(data.bestSeason),
         amenities: destination?.amenities || [],
@@ -177,7 +195,7 @@ export default function EditDestinationPage() {
             Edit Destination
           </h2>
           <p className="text-muted-foreground">
-            Update information for {destination.name}
+            Update information for {destination?.title || "Destination"}
           </p>
         </div>
       </div>

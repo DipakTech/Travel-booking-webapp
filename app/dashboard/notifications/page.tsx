@@ -42,18 +42,21 @@ interface Notification {
   id: string;
   title: string;
   description: string;
-  time: string;
-  date: string;
-  read: boolean;
-  type: "info" | "warning" | "success" | "error";
+  read?: boolean;
+  type: string;
   actionUrl?: string;
   actionLabel?: string;
+  createdAt: string;
+  recipientId: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  relatedEntityName?: string;
+  timeAgo?: string;
   relatedEntity?: {
     type: string;
     id: string;
     name: string;
   };
-  createdAt: string;
 }
 
 export default function NotificationsPage() {
@@ -104,10 +107,10 @@ export default function NotificationsPage() {
   // Group notifications by date
   const groupedNotifications: Record<string, Notification[]> = {};
   filteredNotifications.forEach((notification) => {
-    if (!groupedNotifications[notification.date]) {
-      groupedNotifications[notification.date] = [];
+    if (!groupedNotifications[notification.createdAt]) {
+      groupedNotifications[notification.createdAt] = [];
     }
-    groupedNotifications[notification.date].push(notification);
+    groupedNotifications[notification.createdAt].push(notification);
   });
 
   // Mark a notification as read
@@ -146,7 +149,7 @@ export default function NotificationsPage() {
   };
 
   // Get notification icon based on type
-  const getNotificationIcon = (type: Notification["type"]) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case "success":
         return <CheckCircle2 className="h-5 w-5 text-green-500" />;
@@ -154,6 +157,7 @@ export default function NotificationsPage() {
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       case "error":
         return <AlertCircle className="h-5 w-5 text-red-500" />;
+      case "info":
       default:
         return <Info className="h-5 w-5 text-blue-500" />;
     }

@@ -38,6 +38,7 @@ import { useSession } from "next-auth/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NewReviewForm } from "./NewReviewForm";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface ReviewModalProps {
   open: boolean;
@@ -279,11 +280,13 @@ export default function ReviewModal({
             <h5 className="font-medium mb-2">Photos</h5>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {review.photos.map((photo, index) => (
-                <img
+                <Image
                   key={index}
                   src={photo}
                   alt={`Review photo ${index + 1}`}
                   className="rounded-md object-cover aspect-square"
+                  width={100}
+                  height={100}
                 />
               ))}
             </div>

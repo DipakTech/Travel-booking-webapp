@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as destinationService from "@/lib/services/destinations";
 
+// Force this route to be dynamically rendered at runtime
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);

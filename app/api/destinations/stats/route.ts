@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import * as destinationService from "@/lib/services/destinations";
 
+// Force dynamic rendering for this route
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     // Verify authentication

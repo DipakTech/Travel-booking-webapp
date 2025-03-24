@@ -44,6 +44,18 @@ interface BookingFormProps {
   isSubmitting?: boolean;
 }
 
+// Define destination and guide types that include the properties we need
+interface FormDestination {
+  id: string;
+  name: string;
+  title?: string; // Some APIs might return title instead of name
+}
+
+interface FormGuide {
+  id: string;
+  name: string;
+}
+
 export function BookingForm({
   booking,
   onSubmit,
@@ -54,9 +66,18 @@ export function BookingForm({
     useDestinations();
   const { data: guidesData, isLoading: isLoadingGuides } = useGuides();
 
-  // Ensure guides and destinations are always treated as arrays
-  const guides = guidesData?.guides || [];
-  const destinations = destinationsData?.destinations || [];
+  // Ensure guides and destinations are always treated as arrays and have the right shape
+  const guides: FormGuide[] =
+    guidesData?.guides?.map((guide) => ({
+      id: guide.id || "", // Ensure id is a string, not undefined
+      name: guide.name || "Unknown Guide",
+    })) || [];
+
+  const destinations: FormDestination[] =
+    destinationsData?.destinations?.map((dest) => ({
+      id: dest.id || "", // Ensure id is a string, not undefined
+      name: dest.title || "Unknown Destination", // Some APIs might use title instead of name
+    })) || [];
 
   // Initialize form with default values or existing booking data
   const form = useForm<FormValues>({
@@ -153,7 +174,7 @@ export function BookingForm({
     if (data.activities) {
       data.activities = data.activities.map((activity) => ({
         ...activity,
-        date: activity.date ? new Date(activity.date) : undefined,
+        date: activity.date ? new Date(activity.date) : new Date(),
       }));
     }
 
@@ -165,7 +186,7 @@ export function BookingForm({
         data.payment.transactions = data.payment.transactions.map(
           (transaction) => ({
             ...transaction,
-            date: transaction.date ? new Date(transaction.date) : undefined,
+            date: transaction.date ? new Date(transaction.date) : new Date(),
           }),
         );
       }
@@ -176,15 +197,20 @@ export function BookingForm({
         ...document,
         uploadDate: document.uploadDate
           ? new Date(document.uploadDate)
-          : undefined,
+          : new Date(),
       }));
     }
 
     if (data.notes) {
       data.notes = data.notes.map((note) => ({
         ...note,
-        date: note.date ? new Date(note.date) : undefined,
+        date: note.date ? new Date(note.date) : new Date(),
       }));
+    }
+
+    // Do not allow undefined values for required fields
+    if (data.customer && !data.customer.name) {
+      data.customer.name = ""; // Empty string instead of undefined
     }
 
     onSubmit(data);
@@ -405,7 +431,9 @@ export function BookingForm({
                       <FormItem className="flex flex-col">
                         <FormLabel>Start Date</FormLabel>
                         <DatePicker
-                          date={field.value ? new Date(field.value) : undefined}
+                          date={
+                            field.value ? new Date(field.value) : new Date()
+                          }
                           setDate={(date) => field.onChange(date)}
                         />
                         <FormMessage />
@@ -420,7 +448,9 @@ export function BookingForm({
                       <FormItem className="flex flex-col">
                         <FormLabel>End Date</FormLabel>
                         <DatePicker
-                          date={field.value ? new Date(field.value) : undefined}
+                          date={
+                            field.value ? new Date(field.value) : new Date()
+                          }
                           setDate={(date) => field.onChange(date)}
                         />
                         <FormMessage />

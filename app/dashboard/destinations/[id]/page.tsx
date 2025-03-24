@@ -55,28 +55,26 @@ export default function DestinationDetailsPage() {
   }
 
   const {
-    name,
+    title,
     description,
     images,
     difficulty = "Moderate",
     rating = 0,
-    reviewCount = 0,
+    // reviewCount = 0,
     activities = [],
   } = destination;
 
   const location = destination.location
-    ? `${destination.location.region}, ${destination.location.country}`
+    ? `${destination.location}`
     : "Unknown Location";
 
-  const duration = destination.duration
-    ? `${destination.duration.minDays}-${destination.duration.maxDays}`
-    : "0";
+  const duration = destination.duration ? `${destination.duration}` : "0";
 
   const averageCost = destination.price?.amount || 0;
 
-  const bestSeason = destination.seasons || [];
+  const bestSeason = destination.bestSeason || [];
 
-  const altitude = destination.location?.coordinates?.latitude || null;
+  const altitude = destination.maxAltitude || null;
 
   const mainImage = images && images.length > 0 ? images[0] : null;
   const galleryImages = images && images.length > 1 ? images.slice(1) : [];
@@ -92,10 +90,18 @@ export default function DestinationDetailsPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">{name}</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
             <div className="flex items-center gap-2">
-              <Badge variant={destination.featured ? "default" : "outline"}>
-                {destination.featured ? "Featured" : "Standard"}
+              <Badge
+                variant={
+                  destination.activities && destination.activities.length > 0
+                    ? "default"
+                    : "outline"
+                }
+              >
+                {destination.activities && destination.activities.length > 0
+                  ? "Featured"
+                  : "Standard"}
               </Badge>
             </div>
           </div>
@@ -112,7 +118,7 @@ export default function DestinationDetailsPage() {
             </Link>
           </Button>
           <DeleteDestinationDialog
-            destinationName={name}
+            destinationName={title}
             destinationId={destinationId}
           />
         </div>
@@ -122,7 +128,7 @@ export default function DestinationDetailsPage() {
         {mainImage ? (
           <Image
             src={mainImage}
-            alt={name}
+            alt={title}
             fill
             className="object-cover w-full h-full"
           />
@@ -141,7 +147,7 @@ export default function DestinationDetailsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {reviewCount.toLocaleString()}
+              {/* {destination.reviews.length.toLocaleString()} */}
             </div>
             <p className="text-xs text-muted-foreground">Based on reviews</p>
           </CardContent>
@@ -154,7 +160,7 @@ export default function DestinationDetailsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{rating.toFixed(1)}</div>
             <p className="text-xs text-muted-foreground">
-              Based on {reviewCount} reviews
+              {/*   Based on {destination.reviews.length} reviews */}
             </p>
           </CardContent>
         </Card>
@@ -231,7 +237,7 @@ export default function DestinationDetailsPage() {
                     >
                       <Image
                         src={image}
-                        alt={`${name} - Image ${index + 1}`}
+                        alt={`${title} - Image ${index + 1}`}
                         fill
                         className="object-cover w-full h-full"
                       />
@@ -263,7 +269,7 @@ export default function DestinationDetailsPage() {
                   <h3 className="font-medium text-sm text-muted-foreground">
                     Best Season
                   </h3>
-                  <p>{bestSeason.join(", ") || "Not specified"}</p>
+                  {/* <p>{bestSeason.join(", ") || "Not specified"}</p>  */}
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground">
@@ -277,7 +283,7 @@ export default function DestinationDetailsPage() {
                   </h3>
                   <p>
                     {destination.duration
-                      ? `${destination.duration.minDays}-${destination.duration.maxDays} days`
+                      ? `${destination.duration} days`
                       : "Not specified"}
                   </p>
                 </div>
@@ -310,7 +316,7 @@ export default function DestinationDetailsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {reviewCount > 0 ? (
+              {/* {reviewCount > 0 ? (
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg border">
                     <div className="flex justify-between items-start">
@@ -335,7 +341,7 @@ export default function DestinationDetailsPage() {
                   <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
                   <p>No reviews yet for this destination.</p>
                 </div>
-              )}
+              )} */}
             </CardContent>
           </Card>
         </TabsContent>

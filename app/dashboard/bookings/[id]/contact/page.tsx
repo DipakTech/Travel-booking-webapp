@@ -349,7 +349,7 @@ export default function ContactCustomerPage() {
             <CardHeader>
               <CardTitle>Send SMS</CardTitle>
               <CardDescription>
-                Send an SMS to the customer's phone
+                Send an SMS to the customer&apos;s phone
               </CardDescription>
             </CardHeader>
             <Form {...smsForm}>

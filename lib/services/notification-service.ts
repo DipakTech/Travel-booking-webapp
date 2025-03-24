@@ -14,12 +14,8 @@ export class NotificationService {
   }
 
   static async createNotification(data: CreateNotification) {
-    const { userId, ...rest } = data;
     return prisma.notification.create({
-      data: {
-        ...rest,
-        recipientId: userId,
-      },
+      data,
     });
   }
 

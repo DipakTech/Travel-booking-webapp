@@ -27,7 +27,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Star } from "lucide-react";
-import { useDestinations } from "@/lib/hooks/use-destinations";
+import {
+  useDestinations,
+  DestinationResponse,
+} from "@/lib/hooks/use-destinations";
 import { useGuides } from "@/lib/hooks/use-guides";
 import { useCreateReview } from "@/lib/hooks/use-reviews";
 import { useSession } from "next-auth/react";
@@ -74,6 +77,18 @@ interface NewReviewFormProps {
   defaultEntityId?: string;
 }
 
+// Define interface for destinations with necessary properties
+interface FormattedDestination {
+  id: string;
+  name: string;
+}
+
+// Define interface for guides with necessary properties
+interface FormattedGuide {
+  id: string;
+  name: string;
+}
+
 export function NewReviewForm({
   onSubmit,
   isSubmitting = false,
@@ -92,9 +107,18 @@ export function NewReviewForm({
     useDestinations();
   const { data: guidesData, isLoading: isLoadingGuides } = useGuides();
 
-  // Ensure guides and destinations are always treated as arrays
-  const guides = guidesData?.guides || [];
-  const destinations = destinationsData?.destinations || [];
+  // Ensure guides and destinations are always treated as arrays and properly formatted
+  const guides: FormattedGuide[] =
+    guidesData?.guides?.map((guide) => ({
+      id: guide.id || "",
+      name: guide.name || "Unknown Guide",
+    })) || [];
+
+  const destinations: FormattedDestination[] =
+    destinationsData?.destinations?.map((dest) => ({
+      id: dest.id || "",
+      name: dest.title || "Unknown Destination", // Use 'title' from DestinationResponse
+    })) || [];
 
   const form = useForm<FormValues>({
     resolver: zodResolver(reviewFormSchema),

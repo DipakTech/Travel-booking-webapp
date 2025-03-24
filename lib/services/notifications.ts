@@ -147,20 +147,30 @@ export const notificationService = {
   async createNotification(
     data: z.infer<typeof notificationSchema> & { recipientId: string },
   ) {
-    // Extract relatedEntity fields
-    const { relatedEntity, ...rest } = data;
-
-    // Prepare data for creation
+    // Create notificationData from the incoming data
     const notificationData = {
-      ...rest,
-      // Map relatedEntity to individual fields
-      ...(relatedEntity
-        ? {
-            relatedEntityType: relatedEntity.type,
-            relatedEntityId: relatedEntity.id,
-            relatedEntityName: relatedEntity.name,
-          }
+      // Include all basic notification fields
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      recipientId: data.recipientId,
+      read: data.read !== undefined ? data.read : false,
+
+      // Include optional fields if they exist
+      ...(data.actionUrl ? { actionUrl: data.actionUrl } : {}),
+      ...(data.actionLabel ? { actionLabel: data.actionLabel } : {}),
+
+      // Include related entity fields if they exist
+      ...(data.relatedEntityType
+        ? { relatedEntityType: data.relatedEntityType }
         : {}),
+      ...(data.relatedEntityId
+        ? { relatedEntityId: data.relatedEntityId }
+        : {}),
+      ...(data.relatedEntityName
+        ? { relatedEntityName: data.relatedEntityName }
+        : {}),
+
       createdAt: new Date().toISOString(),
     };
 

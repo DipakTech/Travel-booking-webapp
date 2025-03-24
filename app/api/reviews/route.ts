@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 // Define validation schema
 const reviewSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),

@@ -1,0 +1,2 @@
+// Force dynamic rendering at runtime
+export const dynamic = 'force-dynamic';

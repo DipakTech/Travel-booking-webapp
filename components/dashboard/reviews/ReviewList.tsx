@@ -28,7 +28,8 @@ import {
   useReviews,
   useModerateReview,
   useDeleteReview,
-  Review as ReviewType,
+  Review as ApiReview,
+  ReviewStatus,
 } from "@/lib/hooks/use-reviews";
 
 export interface Review {
@@ -52,19 +53,42 @@ interface ReviewListProps {
 export function ReviewList({ type }: ReviewListProps) {
   const [selectedReviews, setSelectedReviews] = useState<string[]>([]);
 
+  // Convert the component type prop to a format that matches the hook's expectations
+  const getReviewType = () => {
+    if (type === "guides") return "guide";
+    if (type === "destinations") return "destination";
+    return undefined; // "all" or "flagged" will return undefined for type
+  };
+
   // Use our hook to fetch reviews
-  const { data, isLoading, error } = useReviews({ type });
+  const { data, isLoading, error } = useReviews({
+    type: getReviewType(),
+    // If type is "flagged", we need to filter by status
+    ...(type === "flagged" ? { status: "flagged" } : {}),
+  });
   const moderateReview = useModerateReview();
   const deleteReview = useDeleteReview();
 
-  // Get the reviews from the API response or use an empty array
-  const reviews = data?.reviews || [];
+  // Map API response to our component's Review interface
+  const reviews: Review[] = (data || []).map((apiReview: ApiReview) => ({
+    id: apiReview.id,
+    type: apiReview.type,
+    entityId: apiReview.entityId,
+    entityName: apiReview.entityName || "Unknown",
+    userName: apiReview.userName,
+    userAvatar: apiReview.userAvatar || "",
+    rating: apiReview.rating,
+    comment: apiReview.content, // API has 'content', we use 'comment'
+    date: apiReview.date,
+    status: apiReview.status as Review["status"],
+    response: apiReview.response || null,
+  }));
 
   const toggleSelectAll = () => {
     if (selectedReviews.length === reviews.length) {
       setSelectedReviews([]);
     } else {
-      setSelectedReviews(reviews.map((review) => review.id));
+      setSelectedReviews(reviews.map((review: Review) => review.id));
     }
   };
 
@@ -86,10 +110,13 @@ export function ReviewList({ type }: ReviewListProps) {
           selectedReviews.map((id) => deleteReview.mutateAsync(id)),
         );
       } else {
+        // Map our action to the one expected by the API
+        const apiAction = action as "approve" | "reject" | "flag";
+
         // Use the moderate hook for each selected review
         await Promise.all(
           selectedReviews.map((id) =>
-            moderateReview.mutateAsync({ id, action }),
+            moderateReview.mutateAsync({ id, action: apiAction }),
           ),
         );
       }
