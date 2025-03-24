@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  useReviews,
+  useModerateReview,
+  useDeleteReview,
+  Review as ReviewType,
+} from "@/lib/hooks/use-reviews";
 
 export interface Review {
   id: string;
@@ -44,32 +50,15 @@ interface ReviewListProps {
 }
 
 export function ReviewList({ type }: ReviewListProps) {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedReviews, setSelectedReviews] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchReviews = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/reviews?type=${type}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch reviews");
-      }
-      const data = await response.json();
-      setReviews(data.reviews || []);
-      setError(null);
-    } catch (err) {
-      setError("Error loading reviews. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [type]);
+  // Use our hook to fetch reviews
+  const { data, isLoading, error } = useReviews({ type });
+  const moderateReview = useModerateReview();
+  const deleteReview = useDeleteReview();
 
-  useEffect(() => {
-    fetchReviews();
-  }, [fetchReviews]);
+  // Get the reviews from the API response or use an empty array
+  const reviews = data?.reviews || [];
 
   const toggleSelectAll = () => {
     if (selectedReviews.length === reviews.length) {
@@ -91,58 +80,24 @@ export function ReviewList({ type }: ReviewListProps) {
     action: "approve" | "reject" | "flag" | "delete",
   ) => {
     try {
-      setLoading(true);
-      // In a real app, this would be a bulk API call
-      await Promise.all(
-        selectedReviews.map((id) =>
-          fetch("/api/reviews", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id,
-              status:
-                action === "delete"
-                  ? "deleted"
-                  : action === "approve"
-                  ? "approved"
-                  : action === "reject"
-                  ? "rejected"
-                  : "flagged",
-            }),
-          }),
-        ),
-      );
-
-      // Update local state based on action
       if (action === "delete") {
-        setReviews(
-          reviews.filter((review) => !selectedReviews.includes(review.id)),
+        // Use the delete hook for each selected review
+        await Promise.all(
+          selectedReviews.map((id) => deleteReview.mutateAsync(id)),
         );
       } else {
-        setReviews(
-          reviews.map((review) => {
-            if (selectedReviews.includes(review.id)) {
-              return {
-                ...review,
-                status:
-                  action === "approve"
-                    ? "approved"
-                    : action === "reject"
-                    ? "rejected"
-                    : "flagged",
-              };
-            }
-            return review;
-          }),
+        // Use the moderate hook for each selected review
+        await Promise.all(
+          selectedReviews.map((id) =>
+            moderateReview.mutateAsync({ id, action }),
+          ),
         );
       }
 
+      // Clear selection after successful action
       setSelectedReviews([]);
-    } catch (err) {
-      setError("Failed to process reviews. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error("Error performing bulk action:", error);
     }
   };
 
@@ -207,12 +162,12 @@ export function ReviewList({ type }: ReviewListProps) {
     );
   };
 
-  if (loading && reviews.length === 0) {
+  if (isLoading && reviews.length === 0) {
     return <div className="flex justify-center py-8">Loading reviews...</div>;
   }
 
   if (error) {
-    return <div className="text-red-500 py-4">{error}</div>;
+    return <div className="text-red-500 py-4">{error.message}</div>;
   }
 
   if (reviews.length === 0) {

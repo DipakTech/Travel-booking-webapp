@@ -1,268 +1,319 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { reviewSchema } from "@/lib/schema";
-import api from "@/lib/api";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
+import { toast } from "sonner";
 
-type ReviewFilters = {
-  destinationId?: string;
-  guideId?: string;
-  userId?: string;
-  minRating?: number;
+// Types
+export type ReviewType = "destination" | "guide";
+export type ReviewStatus = "pending" | "approved" | "rejected" | "flagged";
+
+export interface Review {
+  id: string;
+  type: ReviewType;
+  entityId: string;
+  entityName?: string;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  title: string;
+  content: string;
+  date: string;
+  status: ReviewStatus;
+  response?: string;
+  photos?: string[];
+  highlights?: string[];
+  tags?: string[];
+  featured?: boolean;
+  helpfulCount?: number;
+  unhelpfulCount?: number;
+  tripDetails?: {
+    startDate: string;
+    endDate: string;
+    duration: number;
+    type: string;
+  };
+  responseDetails?: {
+    content: string;
+    date: string;
+    responderName: string;
+    responderRole: string;
+    responderId: string;
+  };
+}
+
+export interface ReviewFilters {
+  type?: ReviewType;
+  status?: ReviewStatus;
+  entityId?: string;
+  authorId?: string;
+  featured?: boolean;
+  verified?: boolean;
   limit?: number;
   offset?: number;
-  sortBy?: "date" | "rating";
-  sortOrder?: "asc" | "desc";
-};
+}
 
-/**
- * Hook to fetch reviews with optional filters
- */
-export function useReviews(filters: ReviewFilters = {}) {
+// Validation schema
+export const reviewSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters long").max(100),
+  content: z
+    .string()
+    .min(20, "Review must be at least 20 characters long")
+    .max(5000),
+  rating: z.number().min(1).max(5),
+  photos: z.array(z.string().url()).optional(),
+  highlights: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  authorId: z.string(),
+  destinationId: z.string().optional(),
+  guideId: z.string().optional(),
+  tripStartDate: z.string().optional(),
+  tripEndDate: z.string().optional(),
+  tripDuration: z.number().optional(),
+  tripType: z.string().optional(),
+});
+
+// Hooks
+export function useReviews(filters?: ReviewFilters) {
+  // Build URL parameters from filters
+  const params = new URLSearchParams();
+  if (filters) {
+    if (filters.type) params.append("type", filters.type);
+    if (filters.status) params.append("status", filters.status);
+    if (filters.entityId) params.append("entityId", filters.entityId);
+    if (filters.authorId) params.append("authorId", filters.authorId);
+    if (filters.featured !== undefined)
+      params.append("featured", filters.featured.toString());
+    if (filters.verified !== undefined)
+      params.append("verified", filters.verified.toString());
+    if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.offset) params.append("offset", filters.offset.toString());
+  }
+
   return useQuery({
     queryKey: ["reviews", filters],
-    queryFn: () => {
-      // Convert filters to URLSearchParams
-      const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined) {
-          params.append(key, String(value));
-        }
-      });
-
-      return api.get<{ reviews: any[]; total: number }>(
-        `/api/reviews?${params.toString()}`,
-      );
+    queryFn: async () => {
+      const response = await fetch(`/api/reviews?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch reviews");
+      }
+      return response.json() as Promise<Review[]>;
     },
   });
 }
 
-/**
- * Hook to fetch a single review by ID
- */
-export function useReview(id: string | undefined) {
+export function useReview(id?: string) {
   return useQuery({
     queryKey: ["review", id],
-    queryFn: () => api.get<any>(`/api/reviews/${id}`),
-    enabled: !!id, // Only run the query if we have an ID
+    queryFn: async () => {
+      if (!id) throw new Error("Review ID is required");
+      const response = await fetch(`/api/reviews/${id}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch review");
+      }
+      return response.json() as Promise<Review>;
+    },
+    enabled: !!id, // Only execute if id is provided
   });
 }
 
-/**
- * Hook to fetch destination reviews
- */
-export function useDestinationReviews(destinationId: string | undefined) {
-  return useQuery({
-    queryKey: ["destination-reviews", destinationId],
-    queryFn: () => api.get<any[]>(`/api/destinations/${destinationId}/reviews`),
-    enabled: !!destinationId, // Only run the query if we have a destination ID
-  });
-}
-
-/**
- * Hook to fetch guide reviews
- */
-export function useGuideReviews(guideId: string | undefined) {
-  return useQuery({
-    queryKey: ["guide-reviews", guideId],
-    queryFn: () => api.get<any[]>(`/api/guides/${guideId}/reviews`),
-    enabled: !!guideId, // Only run the query if we have a guide ID
-  });
-}
-
-/**
- * Hook to fetch user reviews
- */
-export function useUserReviews(userId: string | undefined) {
-  return useQuery({
-    queryKey: ["user-reviews", userId],
-    queryFn: () => api.get<any[]>(`/api/users/${userId}/reviews`),
-    enabled: !!userId, // Only run the query if we have a user ID
-  });
-}
-
-/**
- * Hook to create a new review
- */
 export function useCreateReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: z.infer<typeof reviewSchema>) => {
-      return api.post<any>("/api/reviews", data);
+    mutationFn: async (review: z.infer<typeof reviewSchema>) => {
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(review),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to submit review");
+      }
+
+      return response.json();
     },
-    onSuccess: (data) => {
-      // Invalidate reviews queries to refetch data
+    onSuccess: () => {
+      toast.success("Review submitted successfully");
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
-
-      // Invalidate specific related queries
-      if (data.destinationId) {
-        queryClient.invalidateQueries({
-          queryKey: ["destination-reviews", data.destinationId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["destination", data.destinationId],
-        });
-      }
-
-      if (data.guideId) {
-        queryClient.invalidateQueries({
-          queryKey: ["guide-reviews", data.guideId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["guide", data.guideId],
-        });
-      }
-
-      if (data.authorId) {
-        queryClient.invalidateQueries({
-          queryKey: ["user-reviews", data.authorId],
-        });
-      }
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to submit review");
     },
   });
 }
 
-/**
- * Hook to update an existing review
- */
-export function useUpdateReview(id: string) {
+export function useUpdateReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<z.infer<typeof reviewSchema>>) => {
-      return api.put<any>(`/api/reviews/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Review> }) => {
+      const response = await fetch("/api/reviews", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, ...data }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update review");
+      }
+
+      return response.json();
     },
-    onSuccess: (data) => {
-      // Invalidate the specific review query and the reviews list
-      queryClient.invalidateQueries({ queryKey: ["review", id] });
+    onSuccess: (_, variables) => {
+      toast.success("Review updated successfully");
       queryClient.invalidateQueries({ queryKey: ["reviews"] });
-
-      // Invalidate specific related queries
-      if (data.destinationId) {
-        queryClient.invalidateQueries({
-          queryKey: ["destination-reviews", data.destinationId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["destination", data.destinationId],
-        });
-      }
-
-      if (data.guideId) {
-        queryClient.invalidateQueries({
-          queryKey: ["guide-reviews", data.guideId],
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["guide", data.guideId],
-        });
-      }
+      queryClient.invalidateQueries({ queryKey: ["review", variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update review");
     },
   });
 }
 
-/**
- * Hook to delete a review
- */
 export function useDeleteReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => {
-      return api.delete<{ success: boolean }>(`/api/reviews/${id}`);
-    },
-    onSuccess: (_, id) => {
-      // Get review data from cache
-      const review = queryClient.getQueryData<any>(["review", id]);
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/reviews?id=${id}`, {
+        method: "DELETE",
+      });
 
-      // Invalidate reviews queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["reviews"] });
-      queryClient.invalidateQueries({ queryKey: ["review", id] });
-
-      // Invalidate specific related queries if we have the review data
-      if (review) {
-        if (review.destinationId) {
-          queryClient.invalidateQueries({
-            queryKey: ["destination-reviews", review.destinationId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["destination", review.destinationId],
-          });
-        }
-
-        if (review.guideId) {
-          queryClient.invalidateQueries({
-            queryKey: ["guide-reviews", review.guideId],
-          });
-          queryClient.invalidateQueries({
-            queryKey: ["guide", review.guideId],
-          });
-        }
-
-        if (review.authorId) {
-          queryClient.invalidateQueries({
-            queryKey: ["user-reviews", review.authorId],
-          });
-        }
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete review");
       }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success("Review deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["reviews"] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete review");
     },
   });
 }
 
-/**
- * Hook to mark a review as helpful
- */
-export function useMarkReviewHelpful() {
+export function useRespondToReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      reviewId,
-      userId,
+    mutationFn: async ({
+      id,
+      responseContent,
+      responderName,
+      responderRole,
+      responderId,
     }: {
-      reviewId: string;
-      userId: string;
+      id: string;
+      responseContent: string;
+      responderName: string;
+      responderRole: string;
+      responderId: string;
     }) => {
-      return api.post<{ helpful: boolean }>(
-        `/api/reviews/${reviewId}/helpful`,
-        {
-          userId,
+      const response = await fetch("/api/reviews", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          id,
+          responseContent,
+          responderName,
+          responderRole,
+          responderId,
+          responseDate: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to submit response");
+      }
+
+      return response.json();
     },
     onSuccess: (_, variables) => {
-      // Invalidate specific review query
-      queryClient.invalidateQueries({
-        queryKey: ["review", variables.reviewId],
-      });
+      toast.success("Response submitted successfully");
+      queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["review", variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to submit response");
     },
   });
 }
 
-/**
- * Hook to report a review
- */
-export function useReportReview() {
+export function useModerateReview() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      reviewId,
-      userId,
-      reason,
+    mutationFn: async ({
+      id,
+      action,
     }: {
-      reviewId: string;
-      userId: string;
-      reason: string;
+      id: string;
+      action: "approve" | "reject" | "flag" | "feature" | "unfeature";
     }) => {
-      return api.post<{ success: boolean }>(`/api/reviews/${reviewId}/report`, {
-        userId,
-        reason,
+      let data = {};
+
+      switch (action) {
+        case "approve":
+          data = { verified: true };
+          break;
+        case "reject":
+          data = { verified: false };
+          break;
+        case "flag":
+          data = { tags: ["flagged"] };
+          break;
+        case "feature":
+          data = { featured: true };
+          break;
+        case "unfeature":
+          data = { featured: false };
+          break;
+      }
+
+      const response = await fetch("/api/reviews", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id, ...data }),
       });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to moderate review");
+      }
+
+      return response.json();
     },
     onSuccess: (_, variables) => {
-      // Invalidate specific review query
-      queryClient.invalidateQueries({
-        queryKey: ["review", variables.reviewId],
-      });
+      const actionMessages = {
+        approve: "Review approved successfully",
+        reject: "Review rejected successfully",
+        flag: "Review flagged successfully",
+        feature: "Review featured successfully",
+        unfeature: "Review unfeatured successfully",
+      };
+
+      toast.success(actionMessages[variables.action]);
+      queryClient.invalidateQueries({ queryKey: ["reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["review", variables.id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to moderate review");
     },
   });
 }

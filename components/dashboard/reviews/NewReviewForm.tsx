@@ -27,80 +27,151 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Star } from "lucide-react";
+import { useDestinations } from "@/lib/hooks/use-destinations";
+import { useGuides } from "@/lib/hooks/use-guides";
+import { useCreateReview } from "@/lib/hooks/use-reviews";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
-// Mock data for guides and destinations
-const guides = [
-  { id: "G001", name: "Tenzing Sherpa" },
-  { id: "G002", name: "Maria Rodriguez" },
-  { id: "G003", name: "Ahmed Hassan" },
-  { id: "G004", name: "Hiroshi Tanaka" },
-];
-
-const destinations = [
-  { id: "D001", name: "Everest Base Camp Trek" },
-  { id: "D002", name: "Langtang Valley Trek" },
-  { id: "D003", name: "Annapurna Circuit" },
-  { id: "D004", name: "Gokyo Lakes Trek" },
-];
+// Define ReviewFormValues type
+export type ReviewFormValues = {
+  title: string;
+  content: string;
+  rating: number;
+  authorId: string;
+  guideId?: string | undefined;
+  destinationId?: string | undefined;
+  tripStartDate?: string;
+  tripEndDate?: string;
+  tripDuration?: number;
+  tripType?: string;
+};
 
 // Define the validation schema for the form
 const reviewFormSchema = z.object({
   reviewType: z.enum(["guide", "destination"], {
-    required_error: "Please select what you're reviewing",
+    required_error: "Please select what you are reviewing",
   }),
-  entityId: z.string({
-    required_error: "Please select a guide or destination",
-  }),
-  userName: z.string().min(2, {
-    message: "Name must be at least 2 characters",
-  }),
-  userEmail: z.string().email({
-    message: "Please enter a valid email address",
-  }),
-  rating: z.coerce.number().min(1).max(5, {
-    message: "Please select a rating between 1 and 5",
-  }),
-  comment: z.string().min(10, {
-    message: "Comment must be at least 10 characters",
-  }),
+  entityId: z.string().min(1, "Please select a guide or destination"),
+  title: z.string().min(3, "Title must be at least 3 characters long").max(100),
+  content: z
+    .string()
+    .min(20, "Review must be at least 20 characters long")
+    .max(5000),
+  rating: z.number().min(1).max(5),
+  tripStartDate: z.date().optional(),
+  tripEndDate: z.date().optional(),
+  tripDuration: z.number().optional(),
+  tripType: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof reviewFormSchema>;
 
 interface NewReviewFormProps {
-  onSubmit: (data: FormValues) => void;
+  onSubmit?: (data: ReviewFormValues) => void;
   isSubmitting?: boolean;
+  defaultReviewType?: "guide" | "destination";
+  defaultEntityId?: string;
 }
 
 export function NewReviewForm({
   onSubmit,
   isSubmitting = false,
+  defaultReviewType,
+  defaultEntityId,
 }: NewReviewFormProps) {
   const [selectedType, setSelectedType] = useState<
     "guide" | "destination" | null
-  >(null);
+  >(defaultReviewType || null);
+
+  // Initialize the create review mutation
+  const createReviewMutation = useCreateReview();
+
+  // Fetch real data
+  const { data: destinationsData, isLoading: isLoadingDestinations } =
+    useDestinations();
+  const { data: guidesData, isLoading: isLoadingGuides } = useGuides();
+
+  // Ensure guides and destinations are always treated as arrays
+  const guides = guidesData?.guides || [];
+  const destinations = destinationsData?.destinations || [];
 
   const form = useForm<FormValues>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: {
-      userName: "",
-      userEmail: "",
-      comment: "",
+      reviewType: defaultReviewType || undefined,
+      entityId: defaultEntityId || "",
+      title: "",
+      content: "",
       rating: 5,
     },
   });
 
-  // When review type changes, reset the entityId field
+  // When defaultReviewType or defaultEntityId change, update the form
+  useEffect(() => {
+    if (defaultReviewType) {
+      form.setValue("reviewType", defaultReviewType);
+      setSelectedType(defaultReviewType);
+    }
+    if (defaultEntityId) {
+      form.setValue("entityId", defaultEntityId);
+    }
+  }, [defaultReviewType, defaultEntityId, form]);
+
+  // When review type changes, reset the entityId field unless defaultEntityId is set
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === "reviewType") {
-        form.setValue("entityId", "");
+        if (!defaultEntityId) {
+          form.setValue("entityId", "");
+        }
         setSelectedType(value.reviewType as "guide" | "destination" | null);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, defaultEntityId]);
+
+  const { data: session } = useSession();
+
+  const handleSubmit = (data: FormValues) => {
+    console.log("Form data:", data);
+    if (!session?.user?.id) {
+      toast.error("You must be logged in to submit a review");
+      return;
+    }
+
+    // Create a properly formatted review object to submit
+    const reviewData = {
+      title: data.title,
+      content: data.content,
+      rating: data.rating,
+      authorId: session.user.id,
+      // Set the appropriate ID based on review type
+      ...(data.reviewType === "guide"
+        ? { guideId: data.entityId }
+        : { destinationId: data.entityId }),
+      // Add trip details if provided
+      ...(data.tripStartDate && {
+        tripStartDate: data.tripStartDate.toISOString(),
+      }),
+      ...(data.tripEndDate && { tripEndDate: data.tripEndDate.toISOString() }),
+      ...(data.tripDuration && { tripDuration: data.tripDuration }),
+      ...(data.tripType && { tripType: data.tripType }),
+    };
+
+    // Log the exact data being sent
+    console.log("Review type:", data.reviewType);
+    console.log("Entity ID:", data.entityId);
+    console.log("Final review data:", JSON.stringify(reviewData, null, 2));
+
+    // Submit the review using our mutation if no onSubmit is provided
+    if (onSubmit) {
+      onSubmit(reviewData);
+    } else {
+      createReviewMutation.mutate(reviewData);
+    }
+  };
 
   const renderStarRating = () => {
     const rating = form.watch("rating") || 0;
@@ -136,7 +207,10 @@ export function NewReviewForm({
     <Card>
       <CardContent className="pt-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-8"
+          >
             <FormField
               control={form.control}
               name="reviewType"
@@ -145,7 +219,10 @@ export function NewReviewForm({
                   <FormLabel>What are you reviewing?</FormLabel>
                   <FormControl>
                     <RadioGroup
-                      onValueChange={field.onChange}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        setSelectedType(value as "guide" | "destination");
+                      }}
                       defaultValue={field.value}
                       className="flex gap-4"
                     >
@@ -181,10 +258,7 @@ export function NewReviewForm({
                         ? "Select Guide"
                         : "Select Destination"}
                     </FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue
@@ -195,14 +269,14 @@ export function NewReviewForm({
                       <SelectContent>
                         {selectedType === "guide"
                           ? guides.map((guide) => (
-                              <SelectItem key={guide.id} value={guide.id}>
+                              <SelectItem key={guide.id} value={guide.id || ""}>
                                 {guide.name}
                               </SelectItem>
                             ))
                           : destinations.map((destination) => (
                               <SelectItem
                                 key={destination.id}
-                                value={destination.id}
+                                value={destination.id || ""}
                               >
                                 {destination.name}
                               </SelectItem>
@@ -215,38 +289,19 @@ export function NewReviewForm({
               />
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="userName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Customer Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter customer name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="userEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Customer Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Enter customer email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Review Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter review title" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -268,13 +323,13 @@ export function NewReviewForm({
 
             <FormField
               control={form.control}
-              name="comment"
+              name="content"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Review Comment</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter the customer's review"
+                      placeholder="Enter the review"
                       className="min-h-32 resize-none"
                       {...field}
                     />
@@ -285,8 +340,13 @@ export function NewReviewForm({
             />
 
             <div className="flex justify-end">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Review"}
+              <Button
+                type="submit"
+                disabled={isSubmitting || createReviewMutation.isPending}
+              >
+                {isSubmitting || createReviewMutation.isPending
+                  ? "Submitting..."
+                  : "Submit Review"}
               </Button>
             </div>
           </form>
