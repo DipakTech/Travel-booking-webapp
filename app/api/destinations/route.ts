@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
-import { destinationSchema } from "@/lib/schema";
+import { destinationSchema } from "@/lib/schema/destination";
 import * as destinationService from "@/lib/services/destinations";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     // Verify authentication
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     // Check if user is authenticated and has admin access
     if (

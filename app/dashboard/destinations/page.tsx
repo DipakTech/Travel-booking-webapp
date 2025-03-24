@@ -20,9 +20,27 @@ import {
 import { Input } from "@/components/ui/input";
 import { DestinationList } from "@/components/dashboard/destinations/DestinationList";
 import { useRouter } from "next/navigation";
+import {
+  useDestinations,
+  useDestinationStats,
+} from "@/lib/hooks/use-destinations";
+import { useState, useEffect } from "react";
 
 export default function DestinationsPage() {
   const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { data: statsData } = useDestinationStats();
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -41,7 +59,12 @@ export default function DestinationsPage() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search destinations..." className="pl-8" />
+          <Input
+            placeholder="Search destinations..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <Button variant="outline">
           <Filter className="mr-2 h-4 w-4" />
@@ -58,8 +81,12 @@ export default function DestinationsPage() {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">48</div>
-            <p className="text-xs text-muted-foreground">+3 from last month</p>
+            <div className="text-2xl font-bold">
+              {statsData?.totalDestinations || "..."}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {statsData?.featuredCount || "..."} featured destinations
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -82,9 +109,11 @@ export default function DestinationsPage() {
             <Star className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">4.7</div>
+            <div className="text-2xl font-bold">
+              {statsData?.averageRating?.toFixed(1) || "..."}
+            </div>
             <p className="text-xs text-muted-foreground">
-              +0.1 from last month
+              Based on all destinations
             </p>
           </CardContent>
         </Card>
@@ -104,13 +133,15 @@ export default function DestinationsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Popular Destinations</CardTitle>
+          <CardTitle>All Destinations</CardTitle>
           <CardDescription>
-            A list of all available travel destinations
+            {debouncedSearch
+              ? `Search results for "${debouncedSearch}"`
+              : "A list of all available travel destinations"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DestinationList />
+          <DestinationList searchTerm={debouncedSearch} />
         </CardContent>
       </Card>
     </div>

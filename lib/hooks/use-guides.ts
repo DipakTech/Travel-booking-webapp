@@ -1,22 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { guideSchema } from "@/lib/schema";
+import { guideSchema, Guide } from "@/lib/schema/guide";
 import api from "@/lib/api";
 import { z } from "zod";
+import { useToast } from "@/components/ui/use-toast";
 
 type GuideFilters = {
   search?: string;
-  country?: string;
-  region?: string;
-  languages?: string[];
-  specialties?: string[];
+  status?: string;
+  location?: string;
+  specialty?: string;
+  language?: string;
   minRating?: number;
-  experienceLevel?: string;
-  available?: boolean;
-  destinationId?: string;
   limit?: number;
   offset?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
 };
 
 /**
@@ -30,39 +26,14 @@ export function useGuides(filters: GuideFilters = {}) {
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== undefined) {
-          if (Array.isArray(value)) {
-            params.append(key, value.join(","));
-          } else {
-            params.append(key, String(value));
-          }
+          params.append(key, String(value));
         }
       });
 
-      return api.get<{ guides: any[]; total: number }>(
+      return api.get<{ guides: Guide[]; total: number }>(
         `/api/guides?${params.toString()}`,
       );
     },
-  });
-}
-
-/**
- * Hook to fetch top rated guides
- */
-export function useTopGuides(limit = 5) {
-  return useQuery({
-    queryKey: ["top-guides", limit],
-    queryFn: () => api.get<any[]>(`/api/guides/top?limit=${limit}`),
-  });
-}
-
-/**
- * Hook to fetch guides for a specific destination
- */
-export function useDestinationGuides(destinationId: string | undefined) {
-  return useQuery({
-    queryKey: ["destination-guides", destinationId],
-    queryFn: () => api.get<any[]>(`/api/destinations/${destinationId}/guides`),
-    enabled: !!destinationId, // Only run the query if we have a destination ID
   });
 }
 
@@ -72,31 +43,8 @@ export function useDestinationGuides(destinationId: string | undefined) {
 export function useGuide(id: string | undefined) {
   return useQuery({
     queryKey: ["guide", id],
-    queryFn: () => api.get<any>(`/api/guides/${id}`),
+    queryFn: () => api.get<Guide>(`/api/guides/${id}`),
     enabled: !!id, // Only run the query if we have an ID
-  });
-}
-
-/**
- * Hook to fetch guide availability for a specific period
- */
-export function useGuideAvailability(
-  guideId: string | undefined,
-  startDate?: Date,
-  endDate?: Date,
-) {
-  return useQuery({
-    queryKey: ["guide-availability", guideId, startDate, endDate],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (startDate) params.append("startDate", startDate.toISOString());
-      if (endDate) params.append("endDate", endDate.toISOString());
-
-      return api.get<{ available: boolean; dates: Date[] }>(
-        `/api/guides/${guideId}/availability?${params.toString()}`,
-      );
-    },
-    enabled: !!guideId, // Only run the query if we have a guide ID
   });
 }
 
@@ -105,14 +53,30 @@ export function useGuideAvailability(
  */
 export function useCreateGuide() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (data: z.infer<typeof guideSchema>) => {
-      return api.post<any>("/api/guides", data);
+      return api.post<Guide>("/api/guides", data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show success toast
+      toast({
+        title: "Guide created",
+        description: `"${data.name}" has been successfully added to the team.`,
+      });
+
       // Invalidate guides queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["guides"] });
+    },
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to create guide",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -122,15 +86,31 @@ export function useCreateGuide() {
  */
 export function useUpdateGuide(id: string) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (data: Partial<z.infer<typeof guideSchema>>) => {
-      return api.put<any>(`/api/guides/${id}`, data);
+      return api.put<Guide>(`/api/guides/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show success toast
+      toast({
+        title: "Guide updated",
+        description: `"${data.name}" has been successfully updated.`,
+      });
+
       // Invalidate the specific guide query and the guides list
       queryClient.invalidateQueries({ queryKey: ["guide", id] });
       queryClient.invalidateQueries({ queryKey: ["guides"] });
+    },
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to update guide",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -140,102 +120,50 @@ export function useUpdateGuide(id: string) {
  */
 export function useDeleteGuide() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (id: string) => {
       return api.delete<{ success: boolean }>(`/api/guides/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Show success toast
+      toast({
+        title: "Guide removed",
+        description: "The guide has been successfully removed from the system.",
+      });
+
       // Invalidate guides queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["guides"] });
     },
-  });
-}
-
-/**
- * Hook to update guide availability
- */
-export function useUpdateGuideAvailability(guideId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      availableDates,
-    }: {
-      availableDates: { from: Date; to: Date }[];
-    }) => {
-      return api.put<any>(`/api/guides/${guideId}/availability`, {
-        availableDates,
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to remove guide",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
-    },
-    onSuccess: () => {
-      // Invalidate availability queries
-      queryClient.invalidateQueries({
-        queryKey: ["guide-availability", guideId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["guide", guideId] });
     },
   });
 }
 
 /**
- * Hook to assign a guide to a destination
+ * Hook to fetch top-rated guides
  */
-export function useAssignGuideToDestination() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      guideId,
-      destinationId,
-    }: {
-      guideId: string;
-      destinationId: string;
-    }) => {
-      return api.post<any>(`/api/destinations/${destinationId}/guides`, {
-        guideId,
-      });
-    },
-    onSuccess: (_, variables) => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({
-        queryKey: ["destination-guides", variables.destinationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["destination", variables.destinationId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["guide", variables.guideId] });
-    },
+export function useTopRatedGuides(limit = 5) {
+  return useQuery({
+    queryKey: ["top-rated-guides", limit],
+    queryFn: () => api.get<Guide[]>(`/api/guides/top-rated?limit=${limit}`),
   });
 }
 
 /**
- * Hook to remove a guide from a destination
+ * Hook to fetch guide statistics
  */
-export function useRemoveGuideFromDestination() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      guideId,
-      destinationId,
-    }: {
-      guideId: string;
-      destinationId: string;
-    }) => {
-      return api.delete<any>(
-        `/api/destinations/${destinationId}/guides/${guideId}`,
-      );
-    },
-    onSuccess: (_, variables) => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({
-        queryKey: ["destination-guides", variables.destinationId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["destination", variables.destinationId],
-      });
-      queryClient.invalidateQueries({ queryKey: ["guide", variables.guideId] });
-    },
+export function useGuideStats() {
+  return useQuery({
+    queryKey: ["guide-stats"],
+    queryFn: () => api.get<any>("/api/guides/stats"),
   });
 }

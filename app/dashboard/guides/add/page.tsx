@@ -1,29 +1,71 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import { useCreateGuide } from "@/lib/hooks/use-guides";
 import { GuideForm } from "@/components/dashboard/guides/GuideForm";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
+
+export const metadata = {
+  title: "Add New Guide | Travel Booking Dashboard",
+  description: "Add a new tour guide to the system",
+};
 
 export default function AddGuidePage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
+    <div className="flex flex-col gap-6">
+      <DashboardHeader
+        heading="Add New Guide"
+        text="Create a new guide profile with all necessary details."
+      >
+        <Button asChild variant="outline">
           <Link href="/dashboard/guides">
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Back</span>
+            <ArrowLeftIcon className="mr-2 h-4 w-4" />
+            Back to Guides
           </Link>
         </Button>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Add New Guide</h2>
-          <p className="text-muted-foreground">
-            Add a new tour guide to your team
-          </p>
-        </div>
-      </div>
+      </DashboardHeader>
 
-      <GuideForm onSubmit={() => {}} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Guide Information</CardTitle>
+          <CardDescription>
+            Enter the guide&apos;s details. All fields marked with * are
+            required.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+            <AddGuideForm />
+          </Suspense>
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function AddGuideForm() {
+  const router = useRouter();
+  const { mutate: createGuide, isPending } = useCreateGuide();
+
+  const handleSubmit = async (data: any) => {
+    createGuide(data, {
+      onSuccess: () => {
+        router.push("/dashboard/guides");
+      },
+    });
+  };
+
+  return <GuideForm onSubmit={handleSubmit} isLoading={isPending} />;
 }

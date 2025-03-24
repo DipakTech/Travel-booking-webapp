@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { destinationSchema } from "@/lib/schema";
+import { destinationSchema, Destination } from "@/lib/schema/destination";
 import api from "@/lib/api";
 import { z } from "zod";
+import { useToast } from "@/components/ui/use-toast";
 
 type DestinationFilters = {
   featured?: boolean;
@@ -69,14 +70,33 @@ export function useDestination(id: string | undefined) {
  */
 export function useCreateDestination() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (data: z.infer<typeof destinationSchema>) => {
       return api.post<any>("/api/destinations", data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show success toast
+      toast({
+        title: "Destination created",
+        description: `"${data.name}" has been successfully created.`,
+      });
+
       // Invalidate destinations queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["popular-destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["destination-countries"] });
+      queryClient.invalidateQueries({ queryKey: ["destination-stats"] });
+    },
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to create destination",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -86,15 +106,33 @@ export function useCreateDestination() {
  */
 export function useUpdateDestination(id: string) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (data: Partial<z.infer<typeof destinationSchema>>) => {
       return api.put<any>(`/api/destinations/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Show success toast
+      toast({
+        title: "Destination updated",
+        description: `"${data.name}" has been successfully updated.`,
+      });
+
       // Invalidate the specific destination query and the destinations list
       queryClient.invalidateQueries({ queryKey: ["destination", id] });
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["popular-destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["destination-stats"] });
+    },
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to update destination",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 }
@@ -104,14 +142,33 @@ export function useUpdateDestination(id: string) {
  */
 export function useDeleteDestination() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: (id: string) => {
       return api.delete<{ success: boolean }>(`/api/destinations/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      // Show success toast
+      toast({
+        title: "Destination deleted",
+        description: "The destination has been successfully deleted.",
+      });
+
       // Invalidate destinations queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["popular-destinations"] });
+      queryClient.invalidateQueries({ queryKey: ["destination-countries"] });
+      queryClient.invalidateQueries({ queryKey: ["destination-stats"] });
+    },
+    onError: (error: any) => {
+      // Show error toast
+      toast({
+        title: "Failed to delete destination",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 }

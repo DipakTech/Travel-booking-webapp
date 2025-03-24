@@ -1,4 +1,18 @@
+"use client";
+
+import React from "react";
+import { MoreHorizontalIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -7,183 +21,266 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Star, Calendar, Edit, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useGuides } from "@/lib/hooks/use-guides";
+import { useToast } from "@/components/ui/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface Guide {
+// Complete Guide interface for when we get the full guide object
+export interface Guide {
   id: string;
   name: string;
-  location: string;
+  location: {
+    country: string;
+    region: string;
+    city?: string;
+  };
   rating: number;
-  status: string;
-  experience: string;
+  availability: "available" | "unavailable" | "partially_available";
+  experience: {
+    years: number;
+    level: "beginner" | "intermediate" | "expert" | "master";
+  };
   languages: string[];
-  profileImage?: string;
+  photo?: string;
+  email: string;
+  active: boolean;
 }
 
-const guides: Guide[] = [
-  {
-    id: "G001",
-    name: "Tenzing Sherpa",
-    location: "Solukhumbu, Nepal",
-    rating: 4.9,
-    status: "active",
-    experience: "15 years",
-    languages: ["English", "Nepali", "Sherpa", "Hindi", "Basic Chinese"],
-    profileImage: "/guides/tenzing.jpg",
-  },
-  {
-    id: "G002",
-    name: "Maria Rodriguez",
-    location: "Cusco, Peru",
-    rating: 4.8,
-    status: "active",
-    experience: "8 years",
-    languages: ["English", "Spanish", "Portuguese"],
-  },
-  {
-    id: "G003",
-    name: "Ahmed Hassan",
-    location: "Cairo, Egypt",
-    rating: 4.7,
-    status: "on_leave",
-    experience: "12 years",
-    languages: ["English", "Arabic", "French"],
-  },
-  {
-    id: "G004",
-    name: "Hiroshi Tanaka",
-    location: "Kyoto, Japan",
-    rating: 4.9,
-    status: "active",
-    experience: "10 years",
-    languages: ["English", "Japanese", "Mandarin"],
-  },
-];
+// Guide list item interface from the API response
+interface GuideListItem {
+  id: string;
+  name: string;
+  location: {
+    country: string;
+    region: string;
+    city?: string;
+  };
+  rating: number;
+  availability: "available" | "unavailable" | "partially_available";
+  experience: {
+    years: number;
+    level: "beginner" | "intermediate" | "expert" | "master";
+  };
+  languages: string[];
+  photo?: string;
+  email: string;
+}
+
+interface GuideAPIResponse {
+  guides: GuideListItem[];
+  total: number;
+}
+
+const formatLocation = (location: {
+  country: string;
+  region: string;
+  city?: string;
+}) => {
+  return `${location.city ? location.city + ", " : ""}${location.region}, ${
+    location.country
+  }`;
+};
+
+const formatExperience = (experience: { years: number; level: string }) => {
+  return `${experience.years} years (${experience.level})`;
+};
+
+const getStatusBadgeProps = (availability: string) => {
+  switch (availability) {
+    case "available":
+      return { variant: "success" as const, label: "Available" };
+    case "unavailable":
+      return { variant: "destructive" as const, label: "Unavailable" };
+    case "partially_available":
+      return { variant: "warning" as const, label: "Partially Available" };
+    default:
+      return { variant: "outline" as const, label: "Unknown" };
+  }
+};
 
 export function GuideList() {
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-            Active
-          </Badge>
-        );
-      case "inactive":
-        return <Badge variant="outline">Inactive</Badge>;
-      case "on_leave":
-        return (
-          <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
-            On Leave
-          </Badge>
-        );
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
+  const router = useRouter();
+  const { toast } = useToast();
+  const { data, isLoading, error } = useGuides();
+
+  const handleEdit = (guideId: string) => {
+    router.push(`/dashboard/guides/${guideId}/edit`);
   };
 
+  const handleView = (guideId: string) => {
+    router.push(`/dashboard/guides/${guideId}`);
+  };
+
+  const handleDelete = (guideId: string) => {
+    // Will be implemented with delete dialog integration
+    toast({
+      title: "Not implemented",
+      description: "Delete functionality will be implemented soon",
+    });
+  };
+
+  if (isLoading) {
+    return <GuideListSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <div className="text-center">
+          <h3 className="text-lg font-medium">Failed to load guides</h3>
+          <p className="text-muted-foreground mt-2">
+            Please try again later or contact support if the problem persists.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const guides = data?.guides || [];
+  const total = data?.total || 0;
+
   return (
-    <div className="rounded-md border">
+    <div className="border rounded-md">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[250px]">Guide</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>Rating</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Experience</TableHead>
-            <TableHead>Languages</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead className="w-[300px]">Name</TableHead>
+            <TableHead className="w-[200px]">Location</TableHead>
+            <TableHead className="w-[100px]">Rating</TableHead>
+            <TableHead className="w-[150px]">Status</TableHead>
+            <TableHead className="w-[200px]">Experience</TableHead>
+            <TableHead className="w-[200px]">Languages</TableHead>
+            <TableHead className="w-[100px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {guides.map((guide) => (
-            <TableRow key={guide.id}>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    {guide.profileImage ? (
-                      <AvatarImage src={guide.profileImage} alt={guide.name} />
-                    ) : null}
-                    <AvatarFallback>
-                      {guide.name
-                        .split(" ")
-                        .map((name) => name[0])
-                        .join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <Link
-                      href={`/dashboard/guides/${guide.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {guide.name}
-                    </Link>
+          {guides && guides.length > 0 ? (
+            guides.map((guide) => (
+              <TableRow key={guide.id}>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage
+                        src={guide.photo || `/images/avatars/default.jpg`}
+                        alt={guide.name}
+                      />
+                      <AvatarFallback>
+                        {guide.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{guide.name}</span>
                   </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{guide.location}</span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1">
-                  <Star className="h-4 w-4 text-yellow-500" />
-                  <span>{guide.rating}</span>
-                </div>
-              </TableCell>
-              <TableCell>{getStatusBadge(guide.status)}</TableCell>
-              <TableCell>{guide.experience}</TableCell>
-              <TableCell>
-                {guide.languages.slice(0, 2).join(", ")}
-                {guide.languages.length > 2 ? ", ..." : ""}
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/dashboard/guides/${guide.id}`}>
+                </TableCell>
+                <TableCell>{formatLocation(guide.location)}</TableCell>
+                <TableCell>{guide.rating.toFixed(1)}/5.0</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={getStatusBadgeProps(guide.availability).variant}
+                  >
+                    {getStatusBadgeProps(guide.availability).label}
+                  </Badge>
+                </TableCell>
+                <TableCell>{formatExperience(guide.experience)}</TableCell>
+                <TableCell>
+                  {guide.languages.slice(0, 2).join(", ")}
+                  {guide.languages.length > 2 &&
+                    ` +${guide.languages.length - 2} more`}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <MoreHorizontalIcon className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleView(guide.id || "")}
+                      >
                         View details
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/dashboard/guides/${guide.id}/edit`}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit guide
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/dashboard/guides/${guide.id}/schedule`}>
-                        <Calendar className="mr-2 h-4 w-4" />
-                        View schedule
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600">
-                      Remove guide
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleEdit(guide.id || "")}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDelete(guide.id || "")}
+                        className="text-destructive"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={7} className="h-24 text-center">
+                No guides found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function GuideListSkeleton() {
+  return (
+    <div className="border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[300px]">Name</TableHead>
+            <TableHead className="w-[200px]">Location</TableHead>
+            <TableHead className="w-[100px]">Rating</TableHead>
+            <TableHead className="w-[150px]">Status</TableHead>
+            <TableHead className="w-[200px]">Experience</TableHead>
+            <TableHead className="w-[200px]">Languages</TableHead>
+            <TableHead className="w-[100px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <TableRow key={i}>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-4 w-[180px]" />
+                </div>
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-[120px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-[40px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-5 w-[80px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-[140px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-4 w-[140px]" />
+              </TableCell>
+              <TableCell>
+                <Skeleton className="h-8 w-8 rounded-full" />
               </TableCell>
             </TableRow>
           ))}

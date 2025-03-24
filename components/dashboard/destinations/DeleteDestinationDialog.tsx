@@ -14,6 +14,7 @@ import { Trash, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { useDeleteDestination } from "@/lib/hooks/use-destinations";
 
 interface DeleteDestinationDialogProps {
   destinationName: string;
@@ -27,28 +28,27 @@ export function DeleteDestinationDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Use the delete destination hook
+  const deleteDestination = useDeleteDestination();
 
   const handleDelete = async () => {
     if (confirmText !== destinationName) return;
 
-    setIsDeleting(true);
     try {
-      // In a real application, this would call an API
-      console.log(`Deleting destination with ID: ${destinationId}`);
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Delete the destination using the mutation hook
+      await deleteDestination.mutateAsync(destinationId);
 
       // Close the dialog
       setOpen(false);
 
-      // Navigate back to destinations list
-      router.push("/dashboard/destinations");
+      // Navigate back to destinations list (after a short delay to allow for completion)
+      setTimeout(() => {
+        router.push("/dashboard/destinations");
+      }, 500);
     } catch (error) {
+      // Error already handled by the hook
       console.error("Error deleting destination:", error);
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -109,9 +109,11 @@ export function DeleteDestinationDialog({
           <Button
             variant="destructive"
             onClick={handleDelete}
-            disabled={confirmText !== destinationName || isDeleting}
+            disabled={
+              confirmText !== destinationName || deleteDestination.isPending
+            }
           >
-            {isDeleting ? "Deleting..." : "Delete Destination"}
+            {deleteDestination.isPending ? "Deleting..." : "Delete Destination"}
           </Button>
         </DialogFooter>
       </DialogContent>

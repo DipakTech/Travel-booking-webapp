@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, MapPin, Users, DollarSign, Star } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useDestinations } from "@/lib/hooks/use-destinations";
+import { useState, useEffect } from "react";
 
 interface Destination {
   id: string;
@@ -40,7 +42,8 @@ interface Destination {
   image?: string;
 }
 
-const destinations: Destination[] = [
+// Fallback mock data if API fails
+const mockDestinations: Destination[] = [
   {
     id: "D001",
     name: "Everest Base Camp Trek",
@@ -58,60 +61,64 @@ const destinations: Destination[] = [
     },
     image: "/destinations/everest.jpg",
   },
-  {
-    id: "D002",
-    name: "Annapurna Circuit",
-    location: "Annapurna Region, Nepal",
-    category: "Trekking",
-    rating: 4.8,
-    status: "active",
-    priceRange: {
-      min: 1000,
-      max: 2000,
-    },
-    groupSize: {
-      min: 2,
-      max: 10,
-    },
-    image: "/destinations/annapurna.jpg",
-  },
-  {
-    id: "D003",
-    name: "Chitwan National Park Safari",
-    location: "Chitwan, Nepal",
-    category: "Wildlife",
-    rating: 4.7,
-    status: "active",
-    priceRange: {
-      min: 500,
-      max: 1500,
-    },
-    groupSize: {
-      min: 1,
-      max: 8,
-    },
-    image: "/destinations/chitwan.jpg",
-  },
-  {
-    id: "D004",
-    name: "Lumbini Pilgrimage Tour",
-    location: "Lumbini, Nepal",
-    category: "Spiritual",
-    rating: 4.6,
-    status: "maintenance",
-    priceRange: {
-      min: 300,
-      max: 800,
-    },
-    groupSize: {
-      min: 1,
-      max: 15,
-    },
-    image: "/destinations/lumbini.jpg",
-  },
+  // ... other mock destinations
 ];
 
-export function DestinationList() {
+interface DestinationListProps {
+  searchTerm?: string;
+}
+
+export function DestinationList({ searchTerm = "" }: DestinationListProps) {
+  const [filters, setFilters] = useState({
+    search: searchTerm,
+  });
+
+  // Update filters when searchTerm changes
+  useEffect(() => {
+    setFilters((prev) => ({ ...prev, search: searchTerm }));
+  }, [searchTerm]);
+
+  const { data, isLoading, isError } = useDestinations(filters);
+
+  // Transform API data to match component's expected format
+  const transformDestinations = (): Destination[] => {
+    if (isLoading) {
+      return []; // Return empty during loading
+    }
+
+    if (isError || !data?.destinations || data.destinations.length === 0) {
+      if (filters.search && filters.search.trim() !== "") {
+        return []; // Return empty array if searching but no results
+      }
+      return mockDestinations; // Use mock data as fallback
+    }
+
+    return data.destinations.map((dest: any) => ({
+      id: dest.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
+      name: dest.name || "Unnamed Destination",
+      location: dest.location
+        ? `${dest.location.region || ""}, ${dest.location.country || ""}`.trim()
+        : "Unknown Location",
+      category:
+        dest.activities && dest.activities.length > 0
+          ? dest.activities[0]
+          : "Trekking", // Using the first activity as category
+      rating: typeof dest.rating === "number" ? dest.rating : 0,
+      status: dest.featured ? "active" : "inactive",
+      priceRange: {
+        min: dest.price?.amount ? dest.price.amount * 0.8 : 1000, // Estimating price range
+        max: dest.price?.amount ? dest.price.amount * 1.2 : 2000,
+      },
+      groupSize: {
+        min: 1,
+        max: 10, // Default group size
+      },
+      image: dest.images && dest.images.length > 0 ? dest.images[0] : undefined,
+    }));
+  };
+
+  const destinations = transformDestinations();
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
@@ -157,6 +164,23 @@ export function DestinationList() {
         return <Badge variant="outline">{category}</Badge>;
     }
   };
+
+  if (destinations.length === 0 && filters.search) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No destinations found matching &ldquo;{filters.search}&rdquo;. Try a
+        different search term.
+      </div>
+    );
+  }
+
+  if (destinations.length === 0) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No destinations found. Add your first destination to get started.
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border">

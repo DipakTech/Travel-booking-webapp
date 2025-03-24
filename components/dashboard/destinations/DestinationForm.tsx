@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MapPin, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 
 // Form schema with validation
 const destinationFormSchema = z.object({
@@ -52,6 +53,10 @@ const destinationFormSchema = z.object({
   averageCost: z.string().optional(),
   status: z.enum(["popular", "trending", "new"]),
   highlights: z.string().optional(),
+  activities: z.string().optional(),
+  // We can't validate File objects with Zod directly,
+  // so we'll make this optional and handle it separately
+  imageFiles: z.any().optional(),
 });
 
 type DestinationFormValues = z.infer<typeof destinationFormSchema>;
@@ -67,6 +72,10 @@ export function DestinationForm({
   onSubmit,
   isLoading = false,
 }: DestinationFormProps) {
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Initialize form with react-hook-form
   const form = useForm<DestinationFormValues>({
     resolver: zodResolver(destinationFormSchema),
@@ -82,8 +91,37 @@ export function DestinationForm({
       averageCost: defaultValues?.averageCost || "",
       status: defaultValues?.status || "new",
       highlights: defaultValues?.highlights || "",
+      activities: defaultValues?.activities || "",
     },
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setSelectedImages((prev) => [...prev, ...files]);
+
+    // Generate preview URLs for the selected images
+    const newPreviewUrls = files.map((file) => URL.createObjectURL(file));
+    setPreviewUrls((prev) => [...prev, ...newPreviewUrls]);
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageRemove = (index: number) => {
+    // Free up object URL to avoid memory leaks
+    URL.revokeObjectURL(previewUrls[index]);
+
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFormSubmit = (data: DestinationFormValues) => {
+    // Add the selected images to the form data before submitting
+    onSubmit({ ...data, imageFiles: selectedImages });
+  };
 
   return (
     <Card className="w-full">
@@ -95,7 +133,10 @@ export function DestinationForm({
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            onSubmit={form.handleSubmit(handleFormSubmit)}
+            className="space-y-6"
+          >
             <div className="grid gap-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
@@ -285,11 +326,32 @@ export function DestinationForm({
                   <FormItem>
                     <FormLabel>Best Season</FormLabel>
                     <FormControl>
+                      <Input placeholder="spring, autumn" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter seasons separated by commas (spring, summer, autumn,
+                      winter, all year)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="activities"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Activities</FormLabel>
+                    <FormControl>
                       <Input
-                        placeholder="March-May, September-November"
+                        placeholder="trekking, hiking, photography"
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription>
+                      Enter activities separated by commas
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -318,23 +380,107 @@ export function DestinationForm({
 
               <div>
                 <FormLabel>Destination Images</FormLabel>
-                <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center">
-                  <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Drag and drop image files or click to upload
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    (Main image and gallery images for the destination)
-                  </p>
+                <div
+                  className="mt-2 border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
+                  onClick={handleImageClick}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    if (
+                      e.dataTransfer.files &&
+                      e.dataTransfer.files.length > 0
+                    ) {
+                      const files = Array.from(e.dataTransfer.files).filter(
+                        (file) => file.type.startsWith("image/"),
+                      );
+
+                      if (files.length === 0) return;
+
+                      setSelectedImages((prev) => [...prev, ...files]);
+                      const newPreviewUrls = files.map((file) =>
+                        URL.createObjectURL(file),
+                      );
+                      setPreviewUrls((prev) => [...prev, ...newPreviewUrls]);
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {previewUrls.length === 0 ? (
+                    <>
+                      <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Drag and drop image files or click to upload
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        (Main image and gallery images for the destination)
+                      </p>
+                    </>
+                  ) : (
+                    <div
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {previewUrls.map((url, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={url}
+                            alt={`Preview ${index + 1}`}
+                            className="h-24 w-full object-cover rounded-md"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleImageRemove(index);
+                            }}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                          {index === 0 && (
+                            <div className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                              Main
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="mt-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleImageClick();
+                    }}
                   >
-                    Select Images
+                    {previewUrls.length === 0
+                      ? "Select Images"
+                      : "Add More Images"}
                   </Button>
                 </div>
+                {previewUrls.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    First image will be used as the main image. Click and drag
+                    to upload more.
+                  </p>
+                )}
               </div>
             </div>
 

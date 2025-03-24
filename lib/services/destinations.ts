@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Destination, destinationSchema } from "@/lib/schema";
+import { destinationSchema, Destination } from "@/lib/schema/destination";
 import { z } from "zod";
 
 export async function getDestinations(options?: {
@@ -337,36 +337,24 @@ export async function deleteDestination(id: string) {
   return { success: true };
 }
 
-export async function getPopularDestinations(limit = 4) {
+export async function getPopularDestinations(limit = 5) {
   return prisma.destination.findMany({
     where: {
-      featured: true,
+      rating: { gt: 4 },
+      reviewCount: { gt: 0 },
     },
     orderBy: [{ rating: "desc" }, { reviewCount: "desc" }],
     take: limit,
     include: {
       reviews: {
         take: 1,
-        orderBy: {
-          date: "desc",
-        },
+        orderBy: { date: "desc" },
         include: {
           author: {
             select: {
-              name: true,
-              avatar: true,
-            },
-          },
-        },
-      },
-      availableGuides: {
-        take: 1,
-        include: {
-          guide: {
-            select: {
               id: true,
               name: true,
-              photo: true,
+              avatar: true,
             },
           },
         },

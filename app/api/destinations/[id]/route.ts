@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
-import { destinationSchema } from "@/lib/schema";
+import { destinationSchema } from "@/lib/schema/destination";
 import * as destinationService from "@/lib/services/destinations";
 
 export async function GET(

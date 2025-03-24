@@ -18,6 +18,7 @@ model User {
   name          String?
   email         String         @unique
   password      String?
+  role          Role           @default(USER)
   image         String?
   emailVerified DateTime?
   createdAt     DateTime       @default(now())
@@ -351,4 +352,9 @@ model Review {
   responderName   String?
   responderRole   String?
   responderId     String?
+}
+
+enum Role {
+  ADMIN
+  USER
 }

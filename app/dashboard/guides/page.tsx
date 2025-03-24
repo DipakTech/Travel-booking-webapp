@@ -1,98 +1,64 @@
-"use client";
-
 import { Metadata } from "next";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Filter } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { PlusIcon } from "lucide-react";
 import { GuideList } from "@/components/dashboard/guides/GuideList";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { GuideStats } from "@/components/dashboard/guides/GuideStats";
+import { TopRatedGuides } from "@/components/dashboard/guides/TopRatedGuides";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// export const metadata: Metadata = {
-//   title: "Guides | Travel Booking Dashboard",
-//   description: "Manage tour guides and their assignments",
-// };
+export const metadata: Metadata = {
+  title: "Guides | Travel Booking Dashboard",
+  description: "Manage all guides and their profiles",
+};
 
 export default function GuidesPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Tour Guides</h2>
-          <p className="text-muted-foreground">
-            Manage your team of tour guides
-          </p>
-        </div>
+    <div className="flex flex-col gap-6">
+      <DashboardHeader
+        heading="Guides"
+        text="Manage guide profiles, view stats, and add new guides."
+      >
         <Button asChild>
           <Link href="/dashboard/guides/add">
-            <Plus className="mr-2 h-4 w-4" />
+            <PlusIcon className="mr-2 h-4 w-4" />
             Add Guide
           </Link>
         </Button>
+      </DashboardHeader>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Suspense fallback={<StatsCardSkeleton />}>
+          <GuideStats />
+        </Suspense>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Guides</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">
-              Active and inactive guides
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Guides</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">18</div>
-            <p className="text-xs text-muted-foreground">
-              Currently available for assignments
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Average Rating
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">4.8</div>
-            <p className="text-xs text-muted-foreground">
-              Based on 458 client reviews
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Tours This Month
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">36</div>
-            <p className="text-xs text-muted-foreground">
-              +12% from last month
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <h2 className="text-xl font-semibold mb-4">All Guides</h2>
+          <Suspense fallback={<Skeleton className="h-[450px] w-full" />}>
+            <GuideList />
+          </Suspense>
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Top Rated Guides</h2>
+          <Suspense fallback={<Skeleton className="h-[400px] w-full" />}>
+            <TopRatedGuides />
+          </Suspense>
+        </div>
       </div>
-
-      <div className="flex items-center gap-4 py-4">
-        <Input placeholder="Search guides..." className="max-w-sm" />
-      </div>
-
-      <GuideList />
     </div>
+  );
+}
+
+function StatsCardSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton className="h-28 w-full" key={i} />
+      ))}
+    </>
   );
 }
