@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { destinationSchema, Destination } from "@/lib/schema/destination";
 import { z } from "zod";
+import { createSystemNotification } from "@/lib/utils/notification-utils";
 
 export async function getDestinations(options?: {
   featured?: boolean;
@@ -145,6 +146,7 @@ export async function getDestinationById(id: string) {
 
 export async function createDestination(
   data: z.infer<typeof destinationSchema>,
+  adminId?: string,
 ) {
   // Validate data with Zod schema
   destinationSchema.parse(data);
@@ -187,6 +189,38 @@ export async function createDestination(
             },
           }),
         ),
+      );
+    }
+
+    // Create notification for admins
+    if (adminId) {
+      // Get all admin users
+      const admins = await tx.user.findMany({
+        where: {
+          role: "ADMIN",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Create notifications for all admins except the creator
+      await Promise.all(
+        admins
+          .filter((admin) => admin.id !== adminId) // Don't notify the creator
+          .map((admin) =>
+            createSystemNotification({
+              title: "New Destination Added",
+              description: `${data.name} in ${data.location.country}, ${data.location.region} has been added.`,
+              type: "info",
+              recipientId: admin.id,
+              relatedEntityType: "destination",
+              relatedEntityId: destination.id,
+              relatedEntityName: data.name,
+              actionUrl: `/dashboard/destinations/${destination.id}`,
+              actionLabel: "View Destination",
+            }),
+          ),
       );
     }
 

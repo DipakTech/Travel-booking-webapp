@@ -6,6 +6,7 @@ import {
   emergencyContactSchema,
 } from "@/lib/schema";
 import { Prisma } from "@prisma/client";
+import { createSystemNotification } from "@/lib/utils/notification-utils";
 
 type AccommodationType = {
   type: string;
@@ -428,6 +429,110 @@ export async function createBooking(data: BookingData) {
       );
     }
 
+    // Get customer name
+    const customer = await tx.customer.findUnique({
+      where: { id: data.customer.id },
+      select: { name: true },
+    });
+
+    // Get destination name
+    const destination = await tx.destination.findUnique({
+      where: { id: data.destination.id },
+      select: { name: true },
+    });
+
+    // Notify admins about the new booking
+    const admins = await tx.user.findMany({
+      where: {
+        role: "ADMIN",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    // Create notifications for all admins
+    await Promise.all(
+      admins.map((admin) =>
+        createSystemNotification({
+          title: "New Booking Received",
+          description: `${customer?.name} has booked ${destination?.name} (Booking #${bookingNumber}).`,
+          type: "success",
+          recipientId: admin.id,
+          relatedEntityType: "booking",
+          relatedEntityId: booking.id,
+          relatedEntityName: `Booking #${bookingNumber}`,
+          actionUrl: `/dashboard/bookings/${booking.id}`,
+          actionLabel: "View Booking",
+        }),
+      ),
+    );
+
+    // If a guide is assigned, notify them too
+    if (data.guide?.id) {
+      // Get guide user ID
+      const guide = await tx.guide.findUnique({
+        where: { id: data.guide.id },
+        select: {
+          email: true,
+        },
+      });
+
+      if (guide?.email) {
+        // Find the user account with the guide's email
+        const guideUser = await tx.user.findUnique({
+          where: { email: guide.email },
+          select: { id: true },
+        });
+
+        if (guideUser) {
+          await createSystemNotification({
+            title: "New Tour Assignment",
+            description: `You have been assigned to guide ${destination?.name} for ${customer?.name} (Booking #${bookingNumber}).`,
+            type: "info",
+            recipientId: guideUser.id,
+            relatedEntityType: "booking",
+            relatedEntityId: booking.id,
+            relatedEntityName: `Booking #${bookingNumber}`,
+            actionUrl: `/dashboard/bookings/${booking.id}`,
+            actionLabel: "View Booking Details",
+          });
+        }
+      }
+    }
+
+    // Notify customer if they have a user account
+    const customerUser = await tx.customer.findUnique({
+      where: { id: booking.customer.id },
+      select: { email: true },
+    });
+
+    if (customerUser?.email) {
+      const userAccount = await tx.user.findUnique({
+        where: { email: customerUser.email },
+        select: { id: true },
+      });
+
+      if (userAccount) {
+        await createSystemNotification({
+          title: `Your Booking Status: ${data.status}`,
+          description: `Your booking for ${booking.destination.name} is now ${data.status}.`,
+          type:
+            data.status === "confirmed"
+              ? "success"
+              : data.status === "canceled"
+              ? "warning"
+              : "info",
+          recipientId: userAccount.id,
+          relatedEntityType: "booking",
+          relatedEntityId: booking.id,
+          relatedEntityName: `Booking #${booking.bookingNumber}`,
+          actionUrl: `/dashboard/bookings/${booking.id}`,
+          actionLabel: "View Booking",
+        });
+      }
+    }
+
     return booking;
   });
 }
@@ -437,11 +542,29 @@ export async function updateBooking(
   data: Partial<z.infer<typeof bookingSchema>>,
   userId: string,
 ) {
-  // Find the booking
+  // First check if booking exists
   const booking = await prisma.booking.findUnique({
     where: { id },
     include: {
-      customer: true,
+      customer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      destination: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      guide: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
     },
   });
 
@@ -449,175 +572,191 @@ export async function updateBooking(
     throw new Error("Booking not found");
   }
 
-  // Only allow customer or admin to update
-  if (booking.customerId !== userId) {
-    // Check if user is admin or guide for this booking
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    // In a real application, you should probably check against a separate roles table
-    // or use a specific field in the User model for roles
-    const isAdmin = user?.email === process.env.ADMIN_EMAIL;
-
-    if (!isAdmin && booking.guideId !== userId) {
-      throw new Error("You do not have permission to update this booking");
-    }
-  }
-
-  // Calculate total travelers if needed
-  let totalTravelers;
-  if (data.travelers) {
-    const adults = data.travelers.adults || 0;
-    const children = data.travelers.children || 0;
-    const infants = data.travelers.infants || 0;
-    totalTravelers = adults + children + infants;
-  }
-
-  // Prepare update data
-  const updateData: any = {};
-
-  if (data.status) updateData.status = data.status;
-  if (data.guide?.id) updateData.guideId = data.guide.id;
-  if (data.dates?.startDate) updateData.startDate = data.dates.startDate;
-  if (data.dates?.endDate) updateData.endDate = data.dates.endDate;
-  if (data.duration) updateData.duration = data.duration;
-  if (data.travelers?.adults !== undefined)
-    updateData.adultsCount = data.travelers.adults;
-  if (data.travelers?.children !== undefined)
-    updateData.childrenCount = data.travelers.children;
-  if (data.travelers?.infants !== undefined)
-    updateData.infantsCount = data.travelers.infants;
-  if (totalTravelers !== undefined) updateData.totalTravelers = totalTravelers;
-  if (data.payment?.totalAmount !== undefined)
-    updateData.totalAmount = data.payment.totalAmount;
-  if (data.payment?.currency) updateData.currency = data.payment.currency;
-  if (data.payment?.status) updateData.paymentStatus = data.payment.status;
-  if (data.payment?.depositAmount !== undefined)
-    updateData.depositAmount = data.payment.depositAmount;
-  if (data.payment?.depositPaid !== undefined)
-    updateData.depositPaid = data.payment.depositPaid;
-  if (data.payment?.balanceDueDate)
-    updateData.balanceDueDate = data.payment.balanceDueDate;
-  if (data.specialRequests) updateData.specialRequests = data.specialRequests;
-
   // Begin transaction
   return prisma.$transaction(async (tx) => {
-    // Update booking
+    // Update main data
+    const updateData: Prisma.BookingUpdateInput = {};
+
+    // Add relevant fields to updateData from the passed data
+    if (data.status) updateData.status = data.status;
+    if (data.dates) {
+      updateData.startDate = data.dates.startDate;
+      updateData.endDate = data.dates.endDate;
+      updateData.duration = calculateDuration(
+        data.dates.startDate,
+        data.dates.endDate,
+      );
+    }
+    if (data.travelers) {
+      if (data.travelers.adults !== undefined)
+        updateData.adultsCount = data.travelers.adults;
+      if (data.travelers.children !== undefined)
+        updateData.childrenCount = data.travelers.children;
+      if (data.travelers.infants !== undefined)
+        updateData.infantsCount = data.travelers.infants;
+      updateData.totalTravelers =
+        (data.travelers.adults || booking.adultsCount) +
+        (data.travelers.children || booking.childrenCount) +
+        (data.travelers.infants || booking.infantsCount);
+    }
+    if (data.payment) {
+      if (data.payment.totalAmount !== undefined)
+        updateData.totalAmount = data.payment.totalAmount;
+      if (data.payment.currency) updateData.currency = data.payment.currency;
+      if (data.payment.status) updateData.paymentStatus = data.payment.status;
+      if (data.payment.depositAmount !== undefined)
+        updateData.depositAmount = data.payment.depositAmount;
+      if (data.payment.depositPaid !== undefined)
+        updateData.depositPaid = data.payment.depositPaid;
+      if (data.payment.balanceDueDate !== undefined)
+        updateData.balanceDueDate = data.payment.balanceDueDate;
+    }
+    if (data.specialRequests) updateData.specialRequests = data.specialRequests;
+    if (data.guide) updateData.guide = { connect: { id: data.guide.id } };
+
+    // Update the booking
     const updatedBooking = await tx.booking.update({
       where: { id },
       data: updateData,
       include: {
-        customer: true,
-        destination: true,
-        guide: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        destination: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        guide: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
-    // Update accommodations if provided
-    if (data.accommodations) {
-      // Delete existing accommodations
-      await tx.accommodation.deleteMany({
-        where: { bookingId: id },
+    // Add notifications for specific events
+
+    // 1. Status change notification
+    if (data.status && data.status !== booking.status) {
+      // Notify admins
+      const admins = await tx.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
       });
 
-      // Create new accommodations
-      if (data.accommodations.length > 0) {
-        await Promise.all(
-          data.accommodations.map((accommodation) =>
-            tx.accommodation.create({
-              data: {
-                bookingId: id,
-                type: accommodation.type,
-                name: accommodation.name,
-                location: accommodation.location,
-                checkIn: accommodation.checkIn,
-                checkOut: accommodation.checkOut,
-              },
-            }),
-          ),
-        );
-      }
-    }
+      await Promise.all(
+        admins.map((admin) =>
+          createSystemNotification({
+            title: `Booking Status Updated: ${data.status}`,
+            description: `Booking #${booking.bookingNumber} for ${booking.destination.name} is now ${data.status}.`,
+            type:
+              data.status === "confirmed"
+                ? "success"
+                : data.status === "canceled"
+                ? "warning"
+                : "info",
+            recipientId: admin.id,
+            relatedEntityType: "booking",
+            relatedEntityId: booking.id,
+            relatedEntityName: `Booking #${booking.bookingNumber}`,
+            actionUrl: `/dashboard/bookings/${booking.id}`,
+            actionLabel: "View Booking",
+          }),
+        ),
+      );
 
-    // Update transportation if provided
-    if (data.transportation) {
-      // Delete existing transportation
-      await tx.transportation.deleteMany({
-        where: { bookingId: id },
+      // Notify customer if they have a user account
+      const customerUser = await tx.customer.findUnique({
+        where: { id: booking.customer.id },
+        select: { email: true },
       });
 
-      // Create new transportation
-      if (data.transportation.length > 0) {
-        await Promise.all(
-          data.transportation.map((transport) =>
-            tx.transportation.create({
-              data: {
-                bookingId: id,
-                type: transport.type,
-                details: transport.details,
-                departureDate: transport.departureDate,
-                departureLocation: transport.departureLocation,
-                arrivalDate: transport.arrivalDate,
-                arrivalLocation: transport.arrivalLocation,
-              },
-            }),
-          ),
-        );
-      }
-    }
-
-    // Update activities if provided
-    if (data.activities) {
-      // Delete existing activities
-      await tx.bookingActivity.deleteMany({
-        where: { bookingId: id },
-      });
-
-      // Create new activities
-      if (data.activities.length > 0) {
-        await Promise.all(
-          data.activities.map((activity) =>
-            tx.bookingActivity.create({
-              data: {
-                bookingId: id,
-                name: activity.name,
-                date: activity.date,
-                duration: activity.duration,
-                included: activity.included,
-              },
-            }),
-          ),
-        );
-      }
-    }
-
-    // Update emergency contact if provided
-    if (data.emergency) {
-      const existingContact = await tx.emergencyContact.findFirst({
-        where: { bookingId: id },
-      });
-
-      if (existingContact) {
-        await tx.emergencyContact.update({
-          where: { id: existingContact.id },
-          data: {
-            contactName: data.emergency.contactName,
-            relationship: data.emergency.relationship,
-            phone: data.emergency.phone,
-            email: data.emergency.email,
-          },
+      if (customerUser?.email) {
+        const userAccount = await tx.user.findUnique({
+          where: { email: customerUser.email },
+          select: { id: true },
         });
-      } else {
-        await tx.emergencyContact.create({
-          data: {
-            bookingId: id,
-            contactName: data.emergency.contactName,
-            relationship: data.emergency.relationship,
-            phone: data.emergency.phone,
-            email: data.emergency.email,
-          },
+
+        if (userAccount) {
+          await createSystemNotification({
+            title: `Your Booking Status: ${data.status}`,
+            description: `Your booking for ${booking.destination.name} is now ${data.status}.`,
+            type:
+              data.status === "confirmed"
+                ? "success"
+                : data.status === "canceled"
+                ? "warning"
+                : "info",
+            recipientId: userAccount.id,
+            relatedEntityType: "booking",
+            relatedEntityId: booking.id,
+            relatedEntityName: `Booking #${booking.bookingNumber}`,
+            actionUrl: `/dashboard/bookings/${booking.id}`,
+            actionLabel: "View Booking",
+          });
+        }
+      }
+    }
+
+    // 2. Guide assignment notification
+    if (data.guide && data.guide.id !== booking.guide?.id) {
+      // If a new guide is assigned, notify them
+      if (data.guide.id) {
+        const guide = await tx.guide.findUnique({
+          where: { id: data.guide.id },
+          select: { email: true },
         });
+
+        if (guide?.email) {
+          const guideUser = await tx.user.findUnique({
+            where: { email: guide.email },
+            select: { id: true },
+          });
+
+          if (guideUser) {
+            await createSystemNotification({
+              title: "New Tour Assignment",
+              description: `You have been assigned to guide ${booking.destination.name} for ${booking.customer.name} (Booking #${booking.bookingNumber}).`,
+              type: "info",
+              recipientId: guideUser.id,
+              relatedEntityType: "booking",
+              relatedEntityId: booking.id,
+              relatedEntityName: `Booking #${booking.bookingNumber}`,
+              actionUrl: `/dashboard/bookings/${booking.id}`,
+              actionLabel: "View Booking Details",
+            });
+          }
+        }
+      }
+
+      // If there was a previous guide, notify them of the change
+      if (booking.guide?.id) {
+        const oldGuideUser = await tx.user.findUnique({
+          where: { email: booking.guide.email },
+          select: { id: true },
+        });
+
+        if (oldGuideUser) {
+          await createSystemNotification({
+            title: "Tour Assignment Changed",
+            description: `You have been unassigned from guiding ${booking.destination.name} for ${booking.customer.name} (Booking #${booking.bookingNumber}).`,
+            type: "warning",
+            recipientId: oldGuideUser.id,
+            relatedEntityType: "booking",
+            relatedEntityId: booking.id,
+            relatedEntityName: `Booking #${booking.bookingNumber}`,
+            actionUrl: `/dashboard/bookings/${booking.id}`,
+            actionLabel: "View Booking Details",
+          });
+        }
       }
     }
 

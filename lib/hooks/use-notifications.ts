@@ -6,8 +6,9 @@ interface Notification {
   title: string;
   description: string;
   type: string;
-  read: boolean;
+  read?: boolean;
   createdAt: string;
+  recipientId: string;
   actionUrl?: string;
   actionLabel?: string;
   relatedEntityType?: string;

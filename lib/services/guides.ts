@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Guide, guideSchema } from "@/lib/schema";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { createSystemNotification } from "@/lib/utils/notification-utils";
 
 type CertificationType = {
   name: string;
@@ -126,7 +127,10 @@ export async function getGuideById(id: string) {
   return guide;
 }
 
-export async function createGuide(data: z.infer<typeof guideSchema>) {
+export async function createGuide(
+  data: z.infer<typeof guideSchema>,
+  adminId?: string,
+) {
   // Validate data with Zod schema
   guideSchema.parse(data);
 
@@ -202,6 +206,42 @@ export async function createGuide(data: z.infer<typeof guideSchema>) {
             },
           }),
         ),
+      );
+    }
+
+    // Create notification for admins
+    if (adminId) {
+      // Get all admin users
+      const admins = await tx.user.findMany({
+        where: {
+          role: "ADMIN",
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Create notifications for all admins except the creator
+      await Promise.all(
+        admins
+          .filter((admin) => admin.id !== adminId) // Don't notify the creator
+          .map((admin) =>
+            createSystemNotification({
+              title: "New Guide Added",
+              description: `${
+                data.name
+              } has been registered as a guide specializing in ${data.specialties.join(
+                ", ",
+              )}.`,
+              type: "info",
+              recipientId: admin.id,
+              relatedEntityType: "guide",
+              relatedEntityId: guide.id,
+              relatedEntityName: data.name,
+              actionUrl: `/dashboard/guides/${guide.id}`,
+              actionLabel: "View Guide Profile",
+            }),
+          ),
       );
     }
 

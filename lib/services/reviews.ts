@@ -1,6 +1,47 @@
 import { prisma } from "@/lib/prisma";
-import { Review, reviewSchema } from "@/lib/schema";
 import { z } from "zod";
+import { createSystemNotification } from "@/lib/utils/notification-utils";
+
+// Define review schema if it doesn't exist in schema.ts
+export const reviewSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  rating: z.number().min(1).max(5, "Rating must be between 1 and 5"),
+  date: z.date().optional(),
+  author: z.object({
+    id: z.string().min(1, "Author ID is required"),
+    name: z.string().optional(),
+  }),
+  destination: z
+    .object({
+      id: z.string().min(1, "Destination ID is required"),
+      name: z.string().optional(),
+    })
+    .optional(),
+  guide: z
+    .object({
+      id: z.string().min(1, "Guide ID is required"),
+      name: z.string().optional(),
+    })
+    .optional(),
+  trip: z
+    .object({
+      startDate: z.date().optional(),
+      endDate: z.date().optional(),
+      duration: z.number().optional(),
+      type: z.string().optional(),
+    })
+    .optional(),
+  photos: z.array(z.string()).optional(),
+  highlights: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+  featured: z.boolean().optional(),
+  verified: z.boolean().optional(),
+  helpfulCount: z.number().optional(),
+  unhelpfulCount: z.number().optional(),
+});
+
+export type Review = z.infer<typeof reviewSchema>;
 
 export async function getReviews(options?: {
   destinationId?: string;
@@ -152,6 +193,106 @@ export async function createReview(data: z.infer<typeof reviewSchema>) {
     // Update guide rating if applicable
     if (dbData.guideId) {
       await updateGuideRating(tx, dbData.guideId);
+    }
+
+    // Get customer name
+    const author = await tx.customer.findUnique({
+      where: { id: dbData.authorId },
+      select: { name: true },
+    });
+
+    // Create notifications
+    const admins = await tx.user.findMany({
+      where: { role: "ADMIN" },
+      select: { id: true },
+    });
+
+    // Determine which entity was reviewed
+    let entityName = "";
+    let entityType: "destination" | "guide" = "destination";
+    let entityId = "";
+
+    if (dbData.destinationId) {
+      const destination = await tx.destination.findUnique({
+        where: { id: dbData.destinationId },
+        select: { name: true },
+      });
+      entityName = destination?.name || "Unknown destination";
+      entityType = "destination";
+      entityId = dbData.destinationId;
+    } else if (dbData.guideId) {
+      const guide = await tx.guide.findUnique({
+        where: { id: dbData.guideId },
+        select: { name: true },
+      });
+      entityName = guide?.name || "Unknown guide";
+      entityType = "guide";
+      entityId = dbData.guideId;
+    }
+
+    // Create a rating description
+    const ratingText =
+      dbData.rating >= 4
+        ? "positive"
+        : dbData.rating >= 3
+        ? "average"
+        : "negative";
+
+    // Notify admins
+    await Promise.all(
+      admins.map((admin) =>
+        createSystemNotification({
+          title: "New Review Received",
+          description: `${author?.name} left a ${ratingText} review (${dbData.rating}/5) for ${entityName}.`,
+          type:
+            dbData.rating >= 4
+              ? "success"
+              : dbData.rating >= 3
+              ? "info"
+              : "warning",
+          recipientId: admin.id,
+          relatedEntityType: "review",
+          relatedEntityId: review.id,
+          relatedEntityName: `Review of ${entityName}`,
+          actionUrl: `/dashboard/reviews/${review.id}`,
+          actionLabel: "View Review",
+        }),
+      ),
+    );
+
+    // If a guide was reviewed, notify them
+    if (dbData.guideId) {
+      const guide = await tx.guide.findUnique({
+        where: { id: dbData.guideId },
+        select: { email: true },
+      });
+
+      if (guide?.email) {
+        // Find the guide's user account
+        const guideUser = await tx.user.findUnique({
+          where: { email: guide.email },
+          select: { id: true },
+        });
+
+        if (guideUser) {
+          await createSystemNotification({
+            title: "New Review On Your Profile",
+            description: `${author?.name} left a ${ratingText} review (${dbData.rating}/5) on your profile.`,
+            type:
+              dbData.rating >= 4
+                ? "success"
+                : dbData.rating >= 3
+                ? "info"
+                : "warning",
+            recipientId: guideUser.id,
+            relatedEntityType: "review",
+            relatedEntityId: review.id,
+            relatedEntityName: `Review by ${author?.name}`,
+            actionUrl: `/dashboard/reviews/${review.id}`,
+            actionLabel: "View Review",
+          });
+        }
+      }
     }
 
     return review;
